@@ -10,15 +10,19 @@ import { useOverpass, type Toilet } from "@/hooks/use-overpass"
 export default function HomePage() {
   const [showFreeOnly, setShowFreeOnly] = useState(false)
   const [selectedToilet, setSelectedToilet] = useState<Toilet | null>(null)
-  // Controlled map center so moving the map can refetch data
-  const [center, setCenter] = useState<[number, number]>([52.52, 13.405])
+  // Controlled map center vs debounced query center
+  // `mapCenter` updates immediately so the map can preserve the user's
+  // interaction (pointer zoom/pan) without snapping. `queryCenter` is
+  // debounced and used for the Overpass request to avoid spamming the API.
+  const [mapCenter, setMapCenter] = useState<[number, number]>([52.52, 13.405])
+  const [queryCenter, setQueryCenter] = useState<[number, number]>(mapCenter)
   const [zoom, setZoom] = useState<number>(13)
-  const { toilets, loading, error } = useOverpass(center)
+  const { toilets, loading, error } = useOverpass(queryCenter)
 
   // Debounce map moves so we don't refetch continuously while panning/zooming
   const pendingCenterRef = useRef<[number, number] | null>(null)
   const debounceTimer = useRef<number | null>(null)
-  const DEBOUNCE_MS = 500
+  const DEBOUNCE_MS = 1000
 
   const handleBoundsChange = (payload: { center: [number, number]; zoom?: number }) => {
     // Sync zoom immediately so the UI (thumb and number) updates with wheel events
@@ -26,14 +30,19 @@ export default function HomePage() {
       setZoom(payload.zoom)
     }
 
-    // Debounce center updates to avoid frequent Overpass calls while panning
+    // Update the map center immediately so the map's visual state (and the
+    // zoom anchor) follows the user's pointer instead of snapping back when
+    // the parent re-renders with an old center.
+    setMapCenter(payload.center)
+
+    // Debounce the center used for querying Overpass to avoid excessive API calls
     pendingCenterRef.current = payload.center
     if (debounceTimer.current) {
       window.clearTimeout(debounceTimer.current)
     }
     debounceTimer.current = window.setTimeout(() => {
       if (pendingCenterRef.current) {
-        setCenter(pendingCenterRef.current)
+        setQueryCenter(pendingCenterRef.current)
         pendingCenterRef.current = null
       }
       debounceTimer.current = null
@@ -83,7 +92,7 @@ export default function HomePage() {
           toilets={filteredToilets}
           loading={loading}
           onMarkerClick={setSelectedToilet}
-          center={center}
+          center={mapCenter}
           zoom={zoom}
           onBoundsChange={handleBoundsChange}
           onZoomChange={(z) => setZoom(z)}
