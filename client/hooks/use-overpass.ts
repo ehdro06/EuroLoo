@@ -21,7 +21,8 @@ export interface Toilet {
 // Default center: Berlin, Germany
 const DEFAULT_CENTER = { lat: 52.52, lon: 13.405 }
 const BBOX_SIZE = 0.05 // ~5km radius
-const BACKEND_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000/api/toilets";
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const BACKEND_API_URL = `${BASE_URL}/api/toilets`;
 
 // center: [lat, lon]
 export function useOverpass(
