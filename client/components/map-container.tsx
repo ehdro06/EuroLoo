@@ -103,7 +103,7 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
         center={center}
         zoom={zoom}
         boxClassname="h-full w-full"
-        animate={false}
+        animate={true}
         onBoundsChanged={(payload) => {
           // payload: { center, zoom, bounds }
           onBoundsChange?.({ center: payload.center, zoom: payload.zoom })
@@ -120,16 +120,20 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
         ))}
       </Map>
       {/* Zoom control: bottom-right vertical scrollbar with +/- buttons and draggable thumb */}
-      <div className="absolute bottom-4 right-4 z-[1100] flex flex-col items-center gap-2">
+      <div className="absolute bottom-6 right-4 z-[1100] flex origin-bottom-right scale-75 flex-col items-center gap-2 sm:bottom-4 sm:scale-100">
         <button
           aria-label="Zoom in"
           onClick={() => onZoomChange?.(Math.min(18, (zoom ?? 13) + 1))}
-          className="h-9 w-9 rounded-md bg-white/95 border border-black/10 shadow-sm flex items-center justify-center text-lg font-medium"
+          className="flex h-9 w-9 items-center justify-center rounded-md border border-black/10 bg-white/95 text-lg font-medium shadow-sm"
         >
           +
         </button>
 
-        <div ref={trackRef} className="relative my-1 h-44 w-12 rounded-full bg-white/95 border border-black/10 shadow-sm flex items-center justify-center px-1" role="presentation">
+        <div
+          ref={trackRef}
+          className="relative my-1 flex h-32 w-12 touch-none items-center justify-center rounded-full border border-black/10 bg-white/95 px-1 shadow-sm sm:h-44"
+          role="presentation"
+        >
           {/* subtle central track line */}
           <div className="absolute inset-y-4 left-1/2 -translate-x-1/2 w-2 rounded bg-black/10" style={{ width: 6 }} />
 
@@ -143,6 +147,7 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
             tabIndex={0}
             onPointerDown={(e) => {
               e.preventDefault()
+              e.currentTarget.setPointerCapture(e.pointerId); // Capture pointer
               draggingRef.current = true
 
               const onMove = (ev: PointerEvent) => {
@@ -160,8 +165,11 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
                 onZoomChange?.(Math.max(MIN_Z, Math.min(MAX_Z, zoomVal)))
               }
 
-              const onUp = () => {
-                draggingRef.current = false
+              const onUp = (ev: PointerEvent) => {
+                 draggingRef.current = false
+                 // No request release needed, happens automatically on up/cancel usually,
+                 // but explicit release is fine if we had the ID.
+                 // Removing listeners is key.
                 window.removeEventListener("pointermove", onMove)
                 window.removeEventListener("pointerup", onUp)
               }
@@ -169,10 +177,10 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
               window.addEventListener("pointermove", onMove)
               window.addEventListener("pointerup", onUp)
             }}
-            className="absolute h-8 w-8 rounded-full bg-white border border-black/20 flex items-center justify-center text-sm font-medium cursor-grab"
+            className="absolute flex h-8 w-8 cursor-grab items-center justify-center rounded-full border border-black/20 bg-white text-sm font-medium touch-none"
             style={{ left: '50%', top: thumbTop != null ? `${thumbTop}px` : undefined, transform: `translate(-50%, 0)` }}
           >
-            {zoom ?? 13}
+            {Math.round(zoom ?? 13)}
           </div>
         </div>
 
