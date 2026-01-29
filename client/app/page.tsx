@@ -56,9 +56,9 @@ export default function HomePage() {
   const filteredToilets = showFreeOnly ? toilets.filter((t) => t.isFree) : toilets
 
   return (
-    <div className="flex min-h-screen flex-col bg-white">
+    <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
       {/* Header */}
-      <header className="border-b border-black/10 bg-white">
+      <header className="z-10 shrink-0 border-b border-black/10 bg-white">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
             <MapPin className="h-6 w-6" aria-hidden="true" />
@@ -78,7 +78,7 @@ export default function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main className="relative flex-1" style={{ height: "calc(100vh - 4rem)" }}>
+      <main className="relative flex-1 min-h-0">
         {error && (
           <div
             className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg"
