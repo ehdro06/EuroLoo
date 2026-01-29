@@ -80,26 +80,43 @@ export function useOverpass(
         const centerLat = (fetchBbox.south + fetchBbox.north) / 2;
         const centerLon = (fetchBbox.west + fetchBbox.east) / 2;
 
-        const response = await fetch(`${BACKEND_API_URL}?lat=${centerLat}&lng=${centerLon}`)
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000); // 15 second timeout
 
-        if (!response.ok) {
-          console.log("[v0] Backend API response not ok:", response.statusText)
-          throw new Error("Failed to fetch toilet data")
+        try {
+          const response = await fetch(`${BACKEND_API_URL}?lat=${centerLat}&lng=${centerLon}`, {
+            signal: controller.signal
+          })
+          clearTimeout(timeoutId);
+
+          if (!response.ok) {
+            console.log("[v0] Backend API response not ok:", response.statusText)
+            throw new Error("Failed to fetch toilet data")
+          }
+  
+          const newToilets: Toilet[] = await response.json()
+  
+          // Merge into cache (union strategy)
+          const cache = cacheRef.current
+          for (const t of newToilets) {
+            cache.set(t.id, t)
+          }
+  
+  
+          // expand cached bbox
+          cachedBBoxRef.current = unionBBox(cachedBBoxRef.current, fetchBbox)
+        } catch (error: any) {
+             if (error.name === 'AbortError') {
+                 console.error("[v0] Fetch request timed out");
+                 throw new Error("Request timed out");
+             }
+             throw error;
+        } finally {
+            clearTimeout(timeoutId); // Ensure cleared even on error
         }
-
-        const newToilets: Toilet[] = await response.json()
-
-        // Merge into cache (union strategy)
-        const cache = cacheRef.current
-        for (const t of newToilets) {
-          cache.set(t.id, t)
-        }
-
-
-        // expand cached bbox
-        cachedBBoxRef.current = unionBBox(cachedBBoxRef.current, fetchBbox)
       } catch (err) {
         console.error("[v0] Error fetching toilets:", err)
+
         setError("Map data unavailable, retry later")
       } finally {
         if (mounted) setLoading(false)
