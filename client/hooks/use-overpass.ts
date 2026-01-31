@@ -20,7 +20,7 @@ export interface Toilet {
 
 // Default center: Berlin, Germany
 const DEFAULT_CENTER = { lat: 52.52, lon: 13.405 }
-const BASE_URL = "http://192.168.35.90:4000" || process.env.NEXT_PUBLIC_API_URL ;
+const BASE_URL = process.env.NEXT_PUBLIC_API_URL;
 const BACKEND_API_URL = `${BASE_URL}/api/toilets`;
 
 // center: [lat, lon]
