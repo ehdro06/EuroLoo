@@ -31,7 +31,7 @@ export class ToiletsController {
     }
 
     console.log(`Cache MISS for key: ${cacheKey}`);
-    const data = await this.toiletsService.fetchAndCleanToilets(latitude, longitude);
+    const data = await this.toiletsService.fetchAndCleanToilets(parseFloat(roundedLat), parseFloat(roundedLng));
     
     // Save to cache manually to control the key format strictly
     await this.cacheManager.set(cacheKey, data, 3600000); // 1 hour in ms (Nest cache-manager v5 uses ms)

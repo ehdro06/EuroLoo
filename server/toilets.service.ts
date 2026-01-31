@@ -3,7 +3,7 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
 const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
-const BBOX_SIZE = 0.05; // ~5km radius
+const BBOX_SIZE = 0.05;
 
 @Injectable()
 export class ToiletsService {
