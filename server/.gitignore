@@ -17,3 +17,7 @@ yarn-error.log*
 
 # NestJS specific
 *.tsbuildinfo
+
+# Prisma
+src/generated/
+
