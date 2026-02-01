@@ -11,7 +11,11 @@ export class ToiletsController {
   ) {}
 
   @Get('toilets')
-  async getToilets(@Query('lat') lat: string, @Query('lng') lng: string) {
+  async getToilets(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radius') radius?: string
+  ) {
     if (!lat || !lng) {
       throw new Error('Missing lat or lng parameters');
     }
@@ -22,7 +26,10 @@ export class ToiletsController {
     // Manual Caching Logic (simulated check-then-fetch)
     const roundedLat = latitude.toFixed(2);
     const roundedLng = longitude.toFixed(2);
-    const cacheKey = `toilets_${roundedLat}_${roundedLng}`;
+    const radiusMeters = radius
+      ? Math.max(300, Math.round(parseFloat(radius) / 100) * 100)
+      : undefined;
+    const cacheKey = `toilets_${roundedLat}_${roundedLng}_${radiusMeters ?? 'default'}`;
 
     const cachedData = await this.cacheManager.get(cacheKey);
     if (cachedData) {
@@ -31,7 +38,11 @@ export class ToiletsController {
     }
 
     console.log(`Cache MISS for key: ${cacheKey}`);
-    const data = await this.toiletsService.fetchAndCleanToilets(parseFloat(roundedLat), parseFloat(roundedLng));
+    const data = await this.toiletsService.fetchAndCleanToilets(
+      parseFloat(roundedLat),
+      parseFloat(roundedLng),
+      radiusMeters
+    );
     
     // Save to cache manually to control the key format strictly
     await this.cacheManager.set(cacheKey, data, 3600000); // 1 hour in ms (Nest cache-manager v5 uses ms)

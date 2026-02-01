@@ -34,18 +34,7 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
   const thumbRef = useRef<HTMLDivElement | null>(null)
   const draggingRef = useRef(false)
   const [thumbTop, setThumbTop] = useState<number | null>(null)
-  const [isInteracting, setIsInteracting] = useState(false)
   const [showLoading, setShowLoading] = useState(false)
-
-  // Handlers to detect user interaction (touch/mouse) on the map container
-  // We disable animation during direct interaction to prevents 'snapping' fighting
-  // between the gesture and the controlled prop updates.
-  const onInteractionStart = () => setIsInteracting(true)
-  const onInteractionEnd = (e: React.TouchEvent | React.MouseEvent) => {
-    // Only set as not interacting if all touches are gone
-    if ('touches' in e && e.touches.length > 0) return
-    setIsInteracting(false)
-  }
 
   // Internal state for immediate feedback loop (prevents stutter/snap from parent render lag)
   const [internalCenter, setInternalCenter] = useState(center)
@@ -69,7 +58,7 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
 
   // 1. Handle External Center Updates (e.g. initial load, search result)
   useEffect(() => {
-    if (!center || isInteracting) return
+    if (!center) return
     
     // Check if this center update is actually just the loopback from our own movement
     const [lat1, lon1] = lastReportedCenter.current
@@ -85,7 +74,7 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
 
   // 2. Handle External Zoom Updates (if any, though usually we control zoom locally)
   useEffect(() => {
-    if (zoom === undefined || isInteracting) return
+    if (zoom === undefined) return
     if (Math.abs(zoom - lastReportedZoom.current) > 0.1) {
        // Only snap if significant difference
        setTransientZoom(zoom)
@@ -171,13 +160,7 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
   return (
     <div 
       ref={containerRef} 
-      className="relative h-full w-full touch-none"
-      onTouchStart={onInteractionStart}
-      onTouchEnd={onInteractionEnd}
-      onTouchCancel={onInteractionEnd}
-      onMouseDown={onInteractionStart}
-      onMouseUp={onInteractionEnd}
-      onMouseLeave={onInteractionEnd}
+      className="relative h-full w-full touch-none overscroll-none"
     >
       <Map
         width={size?.width}
@@ -191,7 +174,7 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
         */
         center={transientCenter}
         zoom={transientZoom}
-        
+        zoomSnap={false}
         defaultCenter={toilets.length > 0 ? computedCenter : undefined}
         defaultZoom={13}
         

@@ -3,22 +3,19 @@ import { HttpService } from '@nestjs/axios';
 import { firstValueFrom } from 'rxjs';
 
 const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
-const BBOX_SIZE = 0.05;
+const SEARCH_RADIUS_METERS = 5000; // 5km radius
 
 @Injectable()
 export class ToiletsService {
   constructor(private readonly httpService: HttpService) {}
 
-  async fetchAndCleanToilets(lat: number, lng: number) {
-    const south = lat - BBOX_SIZE;
-    const west = lng - BBOX_SIZE;
-    const north = lat + BBOX_SIZE;
-    const east = lng + BBOX_SIZE;
+  async fetchAndCleanToilets(lat: number, lng: number, radiusMeters?: number) {
+    const radius = Math.max(300, Math.round((radiusMeters ?? SEARCH_RADIUS_METERS) / 100) * 100);
 
     const query = `
       [out:json][timeout:25];
       (
-        node["amenity"="toilets"](${south},${west},${north},${east});
+        node["amenity"="toilets"](around:${radius},${lat},${lng});
       );
       out body;
     `;
