@@ -24,11 +24,26 @@ export class ReviewsService {
   }
 
   findAll() {
-    return `This action returns all reviews`;
+    return this.prisma.review.findMany();
   }
 
   findOne(id: number) {
-    return `This action returns a #${id} review`;
+    return this.prisma.review.findUnique({
+      where: { id },
+    });
+  }
+
+  findAllByToilet(externalId: string) {
+    return this.prisma.review.findMany({
+      where: {
+        toilet: {
+          externalId,
+        },
+      },
+      orderBy: {
+        id: 'desc',
+      },
+    });
   }
 
   update(id: number, updateReviewDto: UpdateReviewDto) {
