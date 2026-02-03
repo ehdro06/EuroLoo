@@ -9,7 +9,9 @@
     "dev": "nodemon --exec node --loader ts-node/esm main.ts",
     "build": "npx prisma generate && tsc",
     "start": "node --loader ts-node/esm main.ts",
-    "start:prod": "node dist/main.js"
+    "start:prod": "npx prisma migrate deploy && node dist/main.js",
+    "prisma:generate": "npx prisma generate",
+    "prisma:migrate": "npx prisma migrate deploy"
   },
   "keywords": [],
   "author": "",
