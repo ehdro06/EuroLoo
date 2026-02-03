@@ -7,7 +7,7 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "dev": "nodemon --exec node --loader ts-node/esm main.ts",
-    "build": "tsc",
+    "build": "npx prisma generate && tsc",
     "start": "node --loader ts-node/esm main.ts",
     "start:prod": "node dist/main.js"
   },
