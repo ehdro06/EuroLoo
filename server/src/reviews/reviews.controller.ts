@@ -17,6 +17,11 @@ export class ReviewsController {
     return this.reviewsService.findAll();
   }
 
+  @Get('toilet/:externalId')
+  findAllByToilet(@Param('externalId') externalId: string) {
+    return this.reviewsService.findAllByToilet(externalId);
+  }
+
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.reviewsService.findOne(+id);
