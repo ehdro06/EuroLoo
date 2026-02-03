@@ -15,9 +15,10 @@ model Toilet {
 }
 
 model Review {
-  id       Int    @id @default(autoincrement())
-  content  String
-  rating   Int
-  toiletId Int
-  toilet   Toilet @relation(fields: [toiletId], references: [id], onDelete: Cascade)
+  id        Int      @id @default(autoincrement())
+  content   String
+  rating    Int
+  createdAt DateTime @default(now())
+  toiletId  Int
+  toilet    Toilet   @relation(fields: [toiletId], references: [id], onDelete: Cascade)
 }
