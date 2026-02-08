@@ -2,6 +2,7 @@ import { createApi, fetchBaseQuery } from '@reduxjs/toolkit/query/react';
 
 export interface Toilet {
   id: number;
+  externalId: string;
   lat: number;
   lon: number;
   name?: string;
@@ -62,7 +63,7 @@ export const api = createApi({
        providesTags: ['Reviews']
     }),
     getReviewsByToilet: builder.query<Review[], string>({
-      query: (externalId) => `/reviews/toilet/${externalId}`,
+      query: (externalId) => `/reviews/toilet/${encodeURIComponent(externalId)}`,
       providesTags: (result, error, externalId) => [{ type: 'Reviews', id: externalId }],
     }),
   }),

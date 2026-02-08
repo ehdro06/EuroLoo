@@ -14,9 +14,8 @@ export class ReviewsService {
         content,
         rating,
         toilet: {
-          connectOrCreate: {
-            where: { externalId },
-            create: { externalId },
+          connect: {
+            externalId,
           },
         },
       },
