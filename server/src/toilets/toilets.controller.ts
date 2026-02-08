@@ -38,7 +38,7 @@ export class ToiletsController {
     }
 
     console.log(`Cache MISS for key: ${cacheKey}`);
-    const data = await this.toiletsService.fetchAndCleanToilets(
+    const data = await this.toiletsService.findInRadius(
       parseFloat(roundedLat),
       parseFloat(roundedLng),
       radiusMeters
