@@ -18,11 +18,11 @@ import { useAddReviewMutation } from "@/lib/services/api"
 import { toast } from "sonner" // Assuming sonner is installed as seen in components list
 
 interface AddReviewFormProps {
-  toiletId: number
+  externalId: string
   onSuccess?: () => void
 }
 
-export function AddReviewForm({ toiletId, onSuccess }: AddReviewFormProps) {
+export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
   const [rating, setRating] = useState(0)
   const [cleanliness, setCleanliness] = useState("3")
   const [isFree, setIsFree] = useState(true)
@@ -33,6 +33,11 @@ export function AddReviewForm({ toiletId, onSuccess }: AddReviewFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    if (!externalId) {
+      alert("Error: Toilet ID is missing. Please refresh the page.")
+      return
+    }
 
     if (rating === 0) {
       // toast.error("Please select a star rating")
@@ -58,7 +63,7 @@ export function AddReviewForm({ toiletId, onSuccess }: AddReviewFormProps) {
 
     try {
       await addReview({
-        externalId: `node-${toiletId}`,
+        externalId,
         rating,
         content: finalContent.trim(),
       }).unwrap()

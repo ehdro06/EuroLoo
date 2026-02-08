@@ -18,3 +18,11 @@ yarn-error.log*
 
 # Root dependencies (just in case)
 node_modules/
+
+# OSM Data
+*.pbf
+*.opl
+*.osm
+*.geojson
+toilets.json
+

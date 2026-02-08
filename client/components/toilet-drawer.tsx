@@ -18,7 +18,7 @@ interface ToiletDrawerProps {
 
 export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) {
   const [showReviewForm, setShowReviewForm] = useState(false)
-  const externalId = toilet ? `node-${toilet.id}` : ""
+  const externalId = toilet?.externalId || ""
   
   const { data: reviews, isLoading: isLoadingReviews } = useGetReviewsByToiletQuery(
     externalId, 
@@ -132,7 +132,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
 
             {showReviewForm && (
               <div className="rounded-lg border p-4 bg-slate-50">
-                <AddReviewForm toiletId={toilet.id} onSuccess={() => setShowReviewForm(false)} />
+                <AddReviewForm externalId={externalId} onSuccess={() => setShowReviewForm(false)} />
               </div>
             )}
             

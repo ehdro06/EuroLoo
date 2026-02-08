@@ -8,10 +8,24 @@ datasource db {
 }
 
 model Toilet {
-  id         Int      @id @default(autoincrement())
-  externalId String   @unique
-  createdAt  DateTime @default(now())
-  reviews    Review[]
+  id           Int      @id @default(autoincrement())
+  externalId   String   @unique
+  lat          Float
+  lon          Float
+  name         String?
+  operator     String?
+  fee          String?
+  isFree       Boolean  @default(false)
+  isPaid       Boolean  @default(false)
+  openingHours String?
+  wheelchair   String?
+  isAccessible Boolean  @default(false) // Derived from wheelchair tag usually
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt // Track when we last synced or updated
+  reviews      Review[]
+
+  @@index([lat, lon])
 }
 
 model Review {
