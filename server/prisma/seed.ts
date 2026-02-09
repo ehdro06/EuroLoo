@@ -15,12 +15,28 @@ function decodeOplString(s: string): string {
   // OPL escapes: % -> %25, , -> %2c, = -> %3d
   // We can use decodeURIComponent but we must be robust against bad encoding or null bytes
   try {
-    const decoded = decodeURIComponent(s.replace(/\+/g, '%20'));
-    // Remove null bytes which kill Postgres
-    return decoded.replace(/\0/g, '');
+    // Stage 1: Fix obvious patterns reported by user
+    // Replace "%20%" with "%20" to avoid "Space + %" artifacts
+    let fixed = s.replace(/%20%/g, '%20');
+
+    // Stage 2: Escape any remaining % that is not followed by two hex digits
+    // This allows decodeURIComponent to process valid codes and ignore the rest
+    fixed = fixed.replace(/%(?![0-9a-fA-F]{2})/g, '%25').replace(/\+/g, '%20');
+    
+    const decoded = decodeURIComponent(fixed);
+    
+    // Stage 3: Cleanup Control Characters (0x00-0x1F) 
+    // Remove null bytes, backspaces, etc., but keep Newlines (\n \r) and Tabs (\t)
+    // Range \x00-\x08 matches null to backspace. \x0B-\x0C matches VT, FF. \x0E-\x1F matches others.
+    return decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); 
   } catch (e) {
-    // Fallback: return raw string but sanitized
-    return s.replace(/\0/g, '');
+    // Fallback: simple text replacement if strict decoding fails entirely
+    return s
+      .replace(/%20%/g, ' ') // Handle the specific artifact
+      .replace(/%20/g, ' ')
+      .replace(/%2C/gi, ',')
+      .replace(/%3D/gi, '=')
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
   }
 }
 
