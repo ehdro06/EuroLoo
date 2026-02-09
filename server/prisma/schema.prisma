@@ -20,6 +20,7 @@ model Toilet {
   openingHours String?
   wheelchair   String?
   isAccessible Boolean  @default(false) // Derived from wheelchair tag usually
+  isUserCreated Boolean @default(false)
 
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt // Track when we last synced or updated

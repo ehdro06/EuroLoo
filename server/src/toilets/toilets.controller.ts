@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseInterceptors, Inject } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException } from '@nestjs/common';
 import { ToiletsService } from './toilets.service.js';
 import { CacheInterceptor, CacheKey, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -9,6 +9,50 @@ export class ToiletsController {
     private readonly toiletsService: ToiletsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
+
+  @Post('toilets')
+  async addToilet(@Body() body: any) {
+    if (!body.lat || !body.lng || !body.userLat || !body.userLng) {
+      throw new BadRequestException('Missing required fields: lat, lng, userLat, userLng');
+    }
+
+    try {
+      const newToilet = await this.toiletsService.createToilet({
+        lat: parseFloat(body.lat),
+        lng: parseFloat(body.lng),
+        userLat: parseFloat(body.userLat),
+        userLng: parseFloat(body.userLng),
+        name: body.name,
+        operator: body.operator,
+        fee: body.fee,
+        isFree: body.isFree,
+        isPaid: body.isPaid,
+        openingHours: body.openingHours,
+        wheelchair: body.wheelchair,
+        isAccessible: body.isAccessible,
+      });
+
+      // Invalidate cache for the area 
+      // This is tricky with key based caching, we might just leave it to expire or try to clear relevant keys
+      // For now, simpler to just accept it might take time to appear or clear all toilets keys
+      const keys = await this.cacheManager.store.keys('toilets_*');
+      // If the cache store supports pattern deletion or we iterate
+      // Simple approach: do nothing, cache expires in 1 hour. Or clear everything.
+      // await this.cacheManager.reset(); // Aggressive but safe for data consistency
+
+      return newToilet;
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('too far')) {
+          throw new BadRequestException(error.message);
+        }
+        if (error.message.includes('already exists')) {
+          throw new BadRequestException(error.message);
+        }
+      }
+      throw error;
+    }
+  }
 
   @Get('toilets')
   async getToilets(
