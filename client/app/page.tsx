@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { MapPin, Filter, ShieldCheck } from "lucide-react"
+import { MapPin, Filter, ShieldCheck, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
 import { useOverpass, type Toilet } from "@/hooks/use-overpass"
+import { AddToiletDialog } from "@/components/add-toilet-dialog"
 
 export default function HomePage() {
   const [showFreeOnly, setShowFreeOnly] = useState(false)
@@ -84,16 +85,24 @@ export default function HomePage() {
             <MapPin className="h-6 w-6" aria-hidden="true" />
             <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
           </div>
-          <Button
-            variant={showFreeOnly ? "default" : "outline"}
-            size="sm"
-            onClick={() => setShowFreeOnly(!showFreeOnly)}
-            aria-label={showFreeOnly ? "Show all toilets" : "Show free toilets only"}
-            className="gap-2"
-          >
-            <Filter className="h-4 w-4" aria-hidden="true" />
-            <span className="hidden sm:inline">{showFreeOnly ? "Free Only" : "All"}</span>
-          </Button>
+          <div className="flex items-center gap-2">
+            <AddToiletDialog>
+              <Button size="sm" variant="secondary" className="gap-2">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Add Missing</span>
+              </Button>
+            </AddToiletDialog>
+            <Button
+              variant={showFreeOnly ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowFreeOnly(!showFreeOnly)}
+              aria-label={showFreeOnly ? "Show all toilets" : "Show free toilets only"}
+              className="gap-2"
+            >
+              <Filter className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">{showFreeOnly ? "Free Only" : "All"}</span>
+            </Button>
+          </div>
         </div>
       </header>
 

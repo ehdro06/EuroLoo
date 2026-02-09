@@ -66,7 +66,15 @@ export const api = createApi({
       query: (externalId) => `/reviews/toilet/${encodeURIComponent(externalId)}`,
       providesTags: (result, error, externalId) => [{ type: 'Reviews', id: externalId }],
     }),
+    addToilet: builder.mutation<Toilet, any>({
+      query: (body) => ({
+        url: '/api/toilets',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Toilets'],
+    }),
   }),
 });
 
-export const { useGetToiletsQuery, useAddReviewMutation, useGetReviewsQuery, useGetReviewsByToiletQuery } = api;
+export const { useGetToiletsQuery, useAddReviewMutation, useGetReviewsQuery, useGetReviewsByToiletQuery, useAddToiletMutation } = api;
