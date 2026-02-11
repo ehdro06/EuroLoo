@@ -107,10 +107,13 @@ export class ToiletsService {
     // Generate a unique external ID for user-added toilets
     const externalId = `user-${crypto.randomUUID()}`;
 
+    // Prepare data for Prisma (remove 'lng' which is not in schema, map to 'lon')
+    const { lng, ...prismaData } = toiletData;
+
     return this.prisma.toilet.create({
       data: {
-        ...toiletData,
-        lon: toiletData.lng, // Map lng to lon for Prisma model
+        ...prismaData,
+        lon: lng, 
         externalId,
         isUserCreated: true,
       },

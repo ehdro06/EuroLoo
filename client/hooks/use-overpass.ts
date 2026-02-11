@@ -57,7 +57,10 @@ export function useOverpass(
     
     // 2. Check if the new request's circle is fully contained within the cached circle
     //    Condition: distance + new_radius <= cached_radius
-    const isContained = (dist + radius) <= queryArgs.radius
+    //    CRITICAL FIX: If the cached query was skipped (too big), we technically "contain" nothing.
+    //    So we must allow the update if the previous one was skipped.
+    const cachedQueryWasSkipped = queryArgs.radius > MAX_RADIUS_METERS
+    const isContained = !cachedQueryWasSkipped && ((dist + radius) <= queryArgs.radius)
 
     // 3. If NOT contained, we must update the query args to fetch new data
     //    This covers zooming out (radius increases) and panning outside the cached area
