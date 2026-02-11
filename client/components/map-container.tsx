@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useRef, useState, useLayoutEffect } from "react"
-import { Map, Marker } from "pigeon-maps"
+import { Map, Marker, Overlay } from "pigeon-maps"
+import { Locate, Check } from "lucide-react"
 import type { Toilet } from "@/hooks/use-overpass"
 
 interface MapContainerProps {
@@ -12,9 +13,25 @@ interface MapContainerProps {
   center?: [number, number]
   zoom?: number
   onZoomChange?: (zoom: number) => void
+  userLocation?: [number, number] | null
+  isSelectingLocation?: boolean
+  onLocationSelect?: (latLng: [number, number]) => void
+  onUserLocationRequest?: () => void
 }
 
-export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, center: propCenter, zoom, onZoomChange, }: MapContainerProps) {
+export function MapContainer({ 
+  toilets, 
+  loading, 
+  onMarkerClick, 
+  onBoundsChange, 
+  center: propCenter, 
+  zoom, 
+  onZoomChange, 
+  userLocation,
+  isSelectingLocation,
+  onLocationSelect,
+  onUserLocationRequest
+}: MapContainerProps) {
   console.log("[v0] MapContainer rendering with", toilets.length, "toilets")
 
   // Calculate center and zoom based on toilets unless a controlled `propCenter` is provided
@@ -157,10 +174,20 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
     // Depend on internalCenter effectively as a "tick" for map updates
   }, [transientZoom, size, displayZoom]) 
 
+  const lastClickRef = useRef<number>(0)
+
   return (
     <div 
       ref={containerRef} 
       className="relative h-full w-full touch-none overscroll-none"
+      onMouseDownCapture={(e) => {
+        const now = Date.now()
+        // Prevent double-click zoom by stopping propagation of the second click
+        if (now - lastClickRef.current < 300) {
+           e.stopPropagation()
+        }
+        lastClickRef.current = now
+      }}
     >
       <Map
         width={size?.width}
@@ -202,6 +229,11 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
           // 4. Propagate to parent
           onBoundsChange?.({ center: payload.center, zoom: payload.zoom })
         }}
+        onClick={({ latLng }) => {
+            if (isSelectingLocation && onLocationSelect) {
+              onLocationSelect(latLng)
+            }
+        }}
       >
         {toilets.map((toilet) => (
           <Marker
@@ -212,9 +244,30 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
             onClick={() => onMarkerClick(toilet)}
           />
         ))}
+        {userLocation && (
+             <Overlay anchor={userLocation} offset={[10, 10]} className="pointer-events-none">
+                 <div className="relative flex h-5 w-5 items-center justify-center">
+                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
+                     <span className="relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-sky-500 shadow-md"></span>
+                 </div>
+             </Overlay>
+        )}
+        {userLocation && isSelectingLocation && (
+           <Overlay anchor={userLocation} offset={[0, 0]} className="pointer-events-none">
+              <SelectionArea zoom={transientZoom ?? displayZoom} lat={userLocation[0]} />
+           </Overlay>
+        )}
       </Map>
       {/* Zoom control: bottom-right vertical scrollbar with +/- buttons and draggable thumb */}
       <div className="absolute bottom-6 right-4 z-[1100] flex origin-bottom-right scale-75 flex-col items-center gap-2 sm:bottom-4 sm:scale-100">
+        <button
+           aria-label="My Location"
+           onClick={onUserLocationRequest}
+           className="flex h-9 w-9 mb-2 items-center justify-center rounded-md border border-black/10 bg-white/95 text-lg font-medium shadow-sm text-black"
+        >
+            <Locate className="h-5 w-5" />
+        </button>
+
         <button
           aria-label="Zoom in"
           onClick={() => {
@@ -309,5 +362,30 @@ export function MapContainer({ toilets, loading, onMarkerClick, onBoundsChange, 
         </div>
       )}
     </div>
+  )
+}
+
+function SelectionArea({ zoom, lat }: { zoom: number; lat: number }) {
+  // 50m radius
+  const metersPerPixel = (156543.03 * Math.cos((lat * Math.PI) / 180)) / Math.pow(2, zoom)
+  const radiusPx = 50 / metersPerPixel
+  const diameter = radiusPx * 2
+
+  return (
+    <div
+      className="rounded-full border-2 border-dashed border-sky-500 bg-sky-500/20"
+      style={{
+        width: diameter,
+        height: diameter,
+        // Overlay centers the anchor (0,0) at the top-left of the div by default? 
+        // No, Overlay offset system allows centering.
+        // If I pass offset={[0,0]} to Overlay, it places the anchor at the Overlay's children's internal (0,0)?
+        // Pigeon maps Overlay `offset` is [x, y] in pixels.
+        // By default, the anchor point is at the top-left of the content.
+        // So we need to translate by -radius.
+        transform: `translate(-50%, -50%)`,
+        pointerEvents: 'none' // Let clicks pass through to the map
+      }}
+    />
   )
 }

@@ -33,12 +33,9 @@ export class ToiletsController {
       });
 
       // Invalidate cache for the area 
-      // This is tricky with key based caching, we might just leave it to expire or try to clear relevant keys
-      // For now, simpler to just accept it might take time to appear or clear all toilets keys
-      const keys = await this.cacheManager.store.keys('toilets_*');
-      // If the cache store supports pattern deletion or we iterate
-      // Simple approach: do nothing, cache expires in 1 hour. Or clear everything.
-      // await this.cacheManager.reset(); // Aggressive but safe for data consistency
+      // Simple approach: Clear entire cache on new addition to ensure visibility.
+      // This is acceptable for MVP scale.
+      await this.cacheManager.clear(); 
 
       return newToilet;
     } catch (error) {
