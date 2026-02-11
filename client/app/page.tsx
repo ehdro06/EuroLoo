@@ -1,16 +1,25 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useEffect } from "react"
 import { MapPin, Filter, ShieldCheck, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
 import { useOverpass, type Toilet } from "@/hooks/use-overpass"
 import { AddToiletDialog } from "@/components/add-toilet-dialog"
+import { useToast } from "@/components/ui/use-toast"
 
 export default function HomePage() {
+  const { toast } = useToast()
   const [showFreeOnly, setShowFreeOnly] = useState(false)
   const [selectedToilet, setSelectedToilet] = useState<Toilet | null>(null)
+
+  // New State for Location/Adding
+  const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+  const [isAddingToilet, setIsAddingToilet] = useState(false)
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [newToiletLocation, setNewToiletLocation] = useState<{lat: number, lng: number} | null>(null)
+  
   // Controlled map center vs debounced query center
   // `mapCenter` updates immediately so the map can preserve the user's
   // interaction (pointer zoom/pan) without snapping. `queryCenter` is
@@ -30,6 +39,42 @@ export default function HomePage() {
   const debounceTimer = useRef<number | null>(null)
   const DEBOUNCE_MS = 1000
   const MOVE_THRESHOLD = 0.002 // Approx 200m
+
+  // Initial Geolocation
+  useEffect(() => {
+    if (typeof navigator !== 'undefined' && navigator.geolocation) {
+       navigator.geolocation.getCurrentPosition(
+         (pos) => {
+           const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+           setUserLocation(coords)
+           setMapCenter(coords)
+           setQueryCenter(coords)
+         },
+         () => console.log("Location access denied or failed"),
+         { enableHighAccuracy: true }
+       )
+    }
+  }, []) // Run once on mount
+
+  const handleUserLocationRequest = () => {
+    if (!navigator.geolocation) {
+         toast({ title: "Error", description: "Geolocation not supported", variant: "destructive" })
+         return
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+        setUserLocation(coords)
+        setMapCenter(coords)
+        setZoom(16) // Zoom in when locating
+      },
+      (err) => {
+         toast({ title: "Location Error", description: "Could not retrieve location. Please check permissions.", variant: "destructive" })
+      },
+      { enableHighAccuracy: true }
+    )
+  }
 
   const handleBoundsChange = (payload: { center: [number, number]; zoom?: number }) => {
     // Sync zoom immediately so the UI (thumb and number) updates with wheel events
@@ -86,12 +131,22 @@ export default function HomePage() {
             <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
           </div>
           <div className="flex items-center gap-2">
-            <AddToiletDialog>
-              <Button size="sm" variant="secondary" className="gap-2">
+            <Button 
+                size="sm" 
+                variant={isAddingToilet ? "destructive" : "secondary"} 
+                className="gap-2"
+                onClick={() => {
+                   if (!userLocation) {
+                       toast({ description: "Please enable location to add toilets." })
+                       handleUserLocationRequest()
+                   } else {
+                       setIsAddingToilet(!isAddingToilet)
+                   }
+                }}
+            >
                 <Plus className="h-4 w-4" />
-                <span className="hidden sm:inline">Add Missing</span>
-              </Button>
-            </AddToiletDialog>
+                <span className="hidden sm:inline">{isAddingToilet ? "Cancel" : "Add Missing"}</span>
+            </Button>
             <Button
               variant={showFreeOnly ? "default" : "outline"}
               size="sm"
@@ -108,9 +163,15 @@ export default function HomePage() {
 
       {/* Main Content */}
       <main className="relative flex-1 min-h-0">
+        {isAddingToilet && (
+            <div className="absolute top-4 left-1/2 z-[1000] -translate-x-1/2 rounded-full border border-black/10 bg-white px-4 py-2 shadow-lg animate-in fade-in slide-in-from-top-4">
+                <p className="text-sm font-medium text-black">Tap within the circle to add toilet</p>
+            </div>
+        )}
+
         {error && (
           <div
-            className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg"
+            className="absolute left-1/2 top-16 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg"
             role="alert"
           >
             <p className="text-sm font-medium text-black">{error}</p>
@@ -125,6 +186,20 @@ export default function HomePage() {
           zoom={zoom}
           onBoundsChange={handleBoundsChange}
           onZoomChange={(z) => setZoom(z)}
+          userLocation={userLocation}
+          isSelectingLocation={isAddingToilet}
+          onUserLocationRequest={handleUserLocationRequest}
+          onLocationSelect={(latLng) => {
+             if (!userLocation) return
+             const d = getDistanceFromLatLonInMeters(userLocation[0], userLocation[1], latLng[0], latLng[1])
+             if (d > 50) {
+                 toast({ title: "Too far", description: "You must select a location within 50m of your position.", variant: "destructive" })
+             } else {
+                 setNewToiletLocation({ lat: latLng[0], lng: latLng[1] })
+                 setDialogOpen(true)
+                 setIsAddingToilet(false)
+             }
+          }}
         />
 
         {/* Privacy Badge */}
@@ -142,6 +217,31 @@ export default function HomePage() {
         open={!!selectedToilet}
         onOpenChange={(open) => !open && setSelectedToilet(null)}
       />
+      
+      <AddToiletDialog 
+         open={dialogOpen}
+         onOpenChange={setDialogOpen}
+         location={newToiletLocation}
+         userLocation={userLocation ? { lat: userLocation[0], lng: userLocation[1] } : null}
+      />
     </div>
   )
+}
+
+function getDistanceFromLatLonInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
+  var R = 6371000; // Radius of the earth in m
+  var dLat = deg2rad(lat2-lat1);  
+  var dLon = deg2rad(lon2-lon1); 
+  var a = 
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
+    Math.sin(dLon/2) * Math.sin(dLon/2)
+    ; 
+  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  var d = R * c; // Distance in m
+  return d;
+}
+
+function deg2rad(deg: number) {
+  return deg * (Math.PI/180)
 }
