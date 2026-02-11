@@ -70,6 +70,7 @@ export function AddToiletDialog({ open, onOpenChange, location, userLocation, on
         userLat: userLocation.lat, // Required by backend for verification
         userLng: userLocation.lng, 
         isPaid: !data.isFree,
+        fee: data.isFree ? "no" : (data.fee || "Unknown"), // Only set fee to Unknown if paid but fee unspecified
         wheelchair: data.isAccessible ? "yes" : "no",
     }
 
