@@ -9,39 +9,21 @@ export class ToiletsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async findInRadius(lat: number, lng: number, radiusMeters?: number) {
-    const radius = Math.max(300, Math.round((radiusMeters ?? SEARCH_RADIUS_METERS) / 100) * 100);
+    const radius = radiusMeters ?? SEARCH_RADIUS_METERS;
 
-    // Bounding Box Calculation
-    // 1 Degree Latitude approx 111,000 meters
-    const latDelta = radius / 111000;
-    const minLat = lat - latDelta;
-    const maxLat = lat + latDelta;
-
-    // 1 Degree Longitude approx 111,000 * cos(lat) meters
-    // Clamp lat to avoid poles div by zero issues (though toilets at poles unlikely)
-    const latRad = lat * (Math.PI / 180);
-    const lonDelta = radius / (111000 * Math.cos(latRad));
-    
-    const minLon = lng - lonDelta;
-    const maxLon = lng + lonDelta;
-
-    const toilets = await this.prisma.toilet.findMany({
-      where: {
-        lat: {
-          gte: minLat,
-          lte: maxLat,
-        },
-        lon: {
-          gte: minLon,
-          lte: maxLon,
-        },
-      },
-    });
-
-    // Optional: Filter precisely by circle radius using Harvesine in memory if strict accuracy is needed.
-    // Box selection includes corners that are outside radius * sqrt(2).
-    // For now, Box is usually fine for UI "load area" purposes.
-    
+    // Use PostGIS for efficient geospatial querying
+    // ST_DWithin uses the spatial index
+    const toilets = await this.prisma.$queryRaw<any[]>`
+      SELECT 
+        id, "externalId", lat, lon, name, operator, fee, "isFree", "isPaid", 
+        "openingHours", wheelchair, "isAccessible", "isUserCreated", "createdAt", "updatedAt"
+      FROM "Toilet"
+      WHERE ST_DWithin(
+        location::geography,
+        ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
+        ${radius}
+      )
+    `;    
     return toilets;
   }
 
@@ -75,33 +57,21 @@ export class ToiletsService {
       );
     }
 
-    // Duplicate Prevention: Check for existing toilets within ~20 meters
+    // Duplicate Prevention: Check for existing toilets within 20 meters using PostGIS
     const DUPLICATE_RADIUS = 20; 
-    const delta = 0.0003; // ~33 meters approx safe buffer for DB query
 
-    const nearbyToilets = await this.prisma.toilet.findMany({
-      where: {
-        lat: {
-          gte: toiletData.lat - delta,
-          lte: toiletData.lat + delta,
-        },
-        lon: {
-          gte: toiletData.lng - delta,
-          lte: toiletData.lng + delta,
-        },
-      },
-    });
+    const nearbyToilets: any[] = await this.prisma.$queryRaw`
+      SELECT id 
+      FROM "Toilet"
+      WHERE ST_DWithin(
+        location::geography,
+        ST_SetSRID(ST_MakePoint(${toiletData.lng}, ${toiletData.lat}), 4326)::geography,
+        ${DUPLICATE_RADIUS}
+      )
+    `;
 
-    for (const toilet of nearbyToilets) {
-      const dist = this.getDistanceFromLatLonInMeters(
-        toiletData.lat,
-        toiletData.lng,
-        toilet.lat,
-        toilet.lon
-      );
-      if (dist < DUPLICATE_RADIUS) {
-        throw new Error('A toilet already exists within 20 meters of this location.');
-      }
+    if (nearbyToilets.length > 0) {
+      throw new Error('A toilet already exists within 20 meters of this location.');
     }
 
     // Generate a unique external ID for user-added toilets
@@ -110,7 +80,7 @@ export class ToiletsService {
     // Prepare data for Prisma (remove 'lng' which is not in schema, map to 'lon')
     const { lng, ...prismaData } = toiletData;
 
-    return this.prisma.toilet.create({
+    const newToilet = await this.prisma.toilet.create({
       data: {
         ...prismaData,
         lon: lng, 
@@ -118,6 +88,15 @@ export class ToiletsService {
         isUserCreated: true,
       },
     });
+
+    // CRITICAL: Populate the PostGIS location column for the new record
+    await this.prisma.$executeRaw`
+      UPDATE "Toilet" 
+      SET location = ST_SetSRID(ST_MakePoint(${lng}, ${toiletData.lat}), 4326)
+      WHERE id = ${newToilet.id}
+    `;
+
+    return newToilet;
   }
 
   private getDistanceFromLatLonInMeters(

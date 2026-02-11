@@ -1,4 +1,4 @@
-FROM postgres:16-alpine
+FROM postgis/postgis:16-3.4-alpine
 
 ENV POSTGRES_USER=postgres
 ENV POSTGRES_PASSWORD=postgres

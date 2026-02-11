@@ -22,6 +22,9 @@ model Toilet {
   isAccessible Boolean  @default(false) // Derived from wheelchair tag usually
   isUserCreated Boolean @default(false)
 
+  // specific PostGIS geography column
+  location     Unsupported("geometry(Point, 4326)")?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt // Track when we last synced or updated
   reviews      Review[]
