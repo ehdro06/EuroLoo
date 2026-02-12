@@ -25,6 +25,12 @@ model Toilet {
   // specific PostGIS geography column
   location     Unsupported("geometry(Point, 4326)")?
 
+  // Data Integrity / Crowd Control
+  reportCount  Int      @default(0)
+  verifyCount  Int      @default(0)
+  isVerified   Boolean  @default(false)
+  isHidden     Boolean  @default(false)
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt // Track when we last synced or updated
   reviews      Review[]
