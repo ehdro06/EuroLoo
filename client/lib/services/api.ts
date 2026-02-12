@@ -13,6 +13,9 @@ export interface Toilet {
   openingHours?: string;
   wheelchair?: string;
   isAccessible: boolean;
+  isVerified?: boolean;
+  reportCount?: number;
+  verifyCount?: number;
 }
 
 export interface Review {
@@ -66,6 +69,20 @@ export const api = createApi({
       query: (externalId) => `/reviews/toilet/${encodeURIComponent(externalId)}`,
       providesTags: (result, error, externalId) => [{ type: 'Reviews', id: externalId }],
     }),
+    reportToilet: builder.mutation<Toilet, number>({
+      query: (id) => ({
+        url: `/api/toilets/${id}/report`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Toilets'],
+    }),
+    verifyToilet: builder.mutation<Toilet, number>({
+      query: (id) => ({
+        url: `/api/toilets/${id}/verify`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['Toilets'],
+    }),
     addToilet: builder.mutation<Toilet, any>({
       query: (body) => ({
         url: '/api/toilets',
@@ -77,4 +94,12 @@ export const api = createApi({
   }),
 });
 
-export const { useGetToiletsQuery, useAddReviewMutation, useGetReviewsQuery, useGetReviewsByToiletQuery, useAddToiletMutation } = api;
+export const { 
+    useGetToiletsQuery, 
+    useAddReviewMutation, 
+    useGetReviewsQuery, 
+    useGetReviewsByToiletQuery, 
+    useAddToiletMutation,
+    useReportToiletMutation,
+    useVerifyToiletMutation
+} = api;

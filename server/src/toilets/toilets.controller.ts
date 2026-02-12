@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException, Param } from '@nestjs/common';
 import { ToiletsService } from './toilets.service.js';
 import { CacheInterceptor, CacheKey, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
@@ -107,5 +107,40 @@ export class ToiletsController {
       keys,
       message: "Cache inspection depends on underlying store driver"
     };
+  }
+
+  @Post('toilets/:id/report')
+  async reportToilet(@Param('id') id: string) {
+    const toiletId = parseInt(id, 10);
+    if (isNaN(toiletId)) {
+      throw new BadRequestException('Invalid toilet ID');
+    }
+    const result = await this.toiletsService.reportToilet(toiletId);
+    
+    // Invalidate cache so everyone sees this toilet is hidden/reported
+    await this.cacheManager.clear();
+    
+    return result;
+  }
+
+  @Post('toilets/:id/verify')
+  async verifyToilet(@Param('id') id: string) {
+    const toiletId = parseInt(id, 10);
+    if (isNaN(toiletId)) {
+      throw new BadRequestException('Invalid toilet ID');
+    }
+    const result = await this.toiletsService.verifyToilet(toiletId);
+
+    // Invalidate cache so everyone sees the new Verified status
+    await this.cacheManager.clear();
+
+    return result;
+  }
+
+  @Get('toilets/test/clearcache')
+  async clearCache() {    
+    await this.cacheManager.clear();
+    console.log("cacheCleared");
+    
   }
 }

@@ -147,6 +147,9 @@ async function main() {
       openingHours: tags['opening_hours'] || null,
       wheelchair,
       isAccessible,
+      // Default Trust for OSM data
+      isVerified: true,
+      verifyCount: 3, 
       updatedAt: new Date(),
     });
 
@@ -185,6 +188,16 @@ async function saveBatch(toilets: any[]) {
       data: toilets,
       skipDuplicates: true,
     });
+
+    // PostGIS Sync manually after batch insert
+    // Since createMany ignores the 'location' column (it's unsupported in Prisma Client DTO), 
+    // we must populate it manually.
+    // Efficient approach: Update any row where location is NULL.
+    await prisma.$executeRaw`
+      UPDATE "Toilet" 
+      SET location = ST_SetSRID(ST_MakePoint(lon, lat), 4326)
+      WHERE location IS NULL
+    `;
 }
 
 main()

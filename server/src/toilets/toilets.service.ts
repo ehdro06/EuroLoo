@@ -16,9 +16,11 @@ export class ToiletsService {
     const toilets = await this.prisma.$queryRaw<any[]>`
       SELECT 
         id, "externalId", lat, lon, name, operator, fee, "isFree", "isPaid", 
-        "openingHours", wheelchair, "isAccessible", "isUserCreated", "createdAt", "updatedAt"
+        "openingHours", wheelchair, "isAccessible", "isUserCreated", "createdAt", "updatedAt",
+        "isVerified", "reportCount", "verifyCount"
       FROM "Toilet"
-      WHERE ST_DWithin(
+      WHERE "isHidden" = false 
+        AND ST_DWithin(
         location::geography,
         ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
         ${radius}
@@ -97,6 +99,43 @@ export class ToiletsService {
     `;
 
     return newToilet;
+  }
+
+  async reportToilet(id: number) {
+    let toilet = await this.prisma.toilet.update({
+      where: { id },
+      data: {
+        reportCount: { increment: 1 },
+      },
+    });
+
+    // Auto-hide logic: If reports > verifies + 3, hide it
+    if (toilet.reportCount >= toilet.verifyCount + 3) {
+      toilet = await this.prisma.toilet.update({
+        where: { id },
+        data: { isHidden: true },
+      });
+    }
+    return toilet;
+  }
+
+  async verifyToilet(id: number) {
+    let toilet = await this.prisma.toilet.update({
+      where: { id },
+      data: {
+        verifyCount: { increment: 1 },
+      },
+    });
+
+    // Auto-verify logic: If verifyCount >= 3, mark as verified
+    if (toilet.verifyCount >= 3 && !toilet.isVerified) {
+      toilet = await this.prisma.toilet.update({
+        where: { id },
+        data: { isVerified: true },
+      });
+    }
+    console.log(toilet);
+    return toilet;
   }
 
   private getDistanceFromLatLonInMeters(

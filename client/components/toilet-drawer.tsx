@@ -1,14 +1,15 @@
 "use client"
 
-import { MapPin, Euro, Clock, Accessibility, X, MessageSquarePlus, Star, User } from "lucide-react"
+import { MapPin, Euro, Clock, Accessibility, X, MessageSquarePlus, Star, User, AlertTriangle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Toilet } from "@/hooks/use-overpass"
 import { AddReviewForm } from "./add-review-form"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Separator } from "@/components/ui/separator"
-import { useGetReviewsByToiletQuery } from "@/lib/services/api"
+import { useGetReviewsByToiletQuery, useReportToiletMutation, useVerifyToiletMutation } from "@/lib/services/api"
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
+import { toast } from "sonner"
 
 interface ToiletDrawerProps {
   toilet: Toilet | null
@@ -18,14 +19,93 @@ interface ToiletDrawerProps {
 
 export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) {
   const [showReviewForm, setShowReviewForm] = useState(false)
+  const [hasVotedLocally, setHasVotedLocally] = useState(false) 
   const externalId = toilet?.externalId || ""
   
+  // Local state to handle the verified badge status.
+  // Initialized from props, but can be overridden by successful mutation response 
+  // to prevent flickering before the next global fetch.
+  const [isVerified, setIsVerified] = useState(toilet?.isVerified || false);
+
   const { data: reviews, isLoading: isLoadingReviews } = useGetReviewsByToiletQuery(
     externalId, 
     { skip: !toilet }
   )
 
+  const [verifyToilet, { isLoading: isVerifying }] = useVerifyToiletMutation()
+  const [reportToilet, { isLoading: isReporting }] = useReportToiletMutation()
+
+  // Sync state with props when parent updates
+  useEffect(() => {
+    if (toilet) {
+      setIsVerified(toilet.isVerified || false);
+      
+      const votedToilets = JSON.parse(localStorage.getItem('votedToilets') || '[]')
+      setHasVotedLocally(votedToilets.includes(toilet.id))
+    }
+  }, [toilet])
+
+  const markAsVoted = (id: number) => {
+    setHasVotedLocally(true)
+    const votedToilets = JSON.parse(localStorage.getItem('votedToilets') || '[]')
+    if (!votedToilets.includes(id)) {
+      localStorage.setItem('votedToilets', JSON.stringify([...votedToilets, id]))
+    }
+  }
+
+  const handleVerify = async () => {
+    if (!toilet) return
+    
+    // 1. Hide the poll box instantly
+    markAsVoted(toilet.id)
+    toast.success("Thanks for verifying this toilet!")
+
+    // 2. Optimistically update the badge if we predict it will flip
+    //    We don't wait for server response to show the user the result of their action IF it hits the threshold.
+    //    We'll confirm with server response.
+    const currentCount = toilet.verifyCount || 0;
+    if ((currentCount + 1) >= 3) {
+        setIsVerified(true);
+    }
+    
+    try {
+      // 3. Send Request
+      const updatedToilet = await verifyToilet(toilet.id).unwrap()
+
+      // 4. Confirm with source of truth from the mutation response
+      if (updatedToilet.isVerified) {
+         if (!isVerified) toast.success("Congratulations! This toilet is now Verified!")
+         setIsVerified(true)
+      } else {
+         // Revert if we optimistically updated but server says no (rare race condition)
+         setIsVerified(false)
+      }
+    } catch (err) {
+      console.error("Failed to verify toilet", err)
+      setIsVerified(toilet.isVerified || false) // Revert on error
+      toast.error("Failed to verify toilet")
+    }
+  }
+
+  const handleReport = async () => {
+    if (!toilet) return
+    markAsVoted(toilet.id)
+
+    // Auto-hide logic prediction (reports > verifies + 3)
+    // We could close the drawer here optimistically if we wanted to be aggressive
+    // But for now just hiding the poll box is enough feedback.
+
+    try {
+      await reportToilet(toilet.id).unwrap()
+      toast.success("Report submitted. Thanks for helping!")
+    } catch (err) {
+      console.error("Failed to submit report", err)
+    }
+  }
+
   if (!open || !toilet) return null
+
+  const showPollBox = !isVerified && !hasVotedLocally;
 
   return (
     <>
@@ -46,15 +126,57 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
           {/* Header */}
           <div className="mb-4 flex items-start justify-between">
             <div>
-              <h2 id="drawer-title" className="text-2xl font-semibold tracking-tight text-black">
-                {toilet.name || "Public Toilet"}
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 id="drawer-title" className="text-2xl font-semibold tracking-tight text-black">
+                  {toilet.name || "Public Toilet"}
+                </h2>
+                {isVerified && (
+                  <CheckCircle className="h-5 w-5 text-blue-500" aria-label="Verified Location" />
+                )}
+                {!isVerified && (
+                  <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                    Unverified
+                  </span>
+                )}
+              </div>
               {toilet.operator && <p className="mt-1 text-sm text-black/60">Operated by {toilet.operator}</p>}
             </div>
             <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Close details">
               <X className="h-5 w-5" />
             </Button>
           </div>
+
+          {/* Verification Actions */}
+          {showPollBox && (
+            <div className="mb-6 rounded-lg bg-slate-50 p-4">
+              <p className="mb-3 text-sm font-medium text-slate-900">Is this toilet actually here?</p>
+              <div className="flex gap-3">
+                <Button 
+                  size="sm" 
+                  variant="default" // Primary action: Verify
+                  onClick={handleVerify} 
+                  disabled={isVerifying}
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                >
+                  <CheckCircle className="mr-2 h-4 w-4" />
+                  Yes, it exists
+                </Button>
+                <Button 
+                  size="sm" 
+                  variant="outline" 
+                  onClick={handleReport} 
+                  disabled={isReporting}
+                  className="text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
+                >
+                  <AlertTriangle className="mr-2 h-4 w-4" />
+                  No, it's missing
+                </Button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">
+                Community reports help us keep the map accurate.
+              </p>
+            </div>
+          )}
 
           {/* Details */}
           <div className="space-y-3">
