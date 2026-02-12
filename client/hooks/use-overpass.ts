@@ -65,6 +65,11 @@ export function useOverpass(
     // 3. If NOT contained, we must update the query args to fetch new data
     //    This covers zooming out (radius increases) and panning outside the cached area
     if (!isContained) {
+      // Prevent infinite loop: if the inputs haven't changed but isContained is false 
+      // (e.g. because we are in a skipped state > MAX_RADIUS), don't update state.
+      if (queryArgs.lat === lat && queryArgs.lng === lng && queryArgs.radius === radius) {
+        return
+      }
       setQueryArgs({ lat, lng, radius })
     }
   }, [lat, lng, radius, queryArgs])
