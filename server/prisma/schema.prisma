@@ -34,6 +34,11 @@ model Toilet {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt // Track when we last synced or updated
   reviews      Review[]
+  
+  // User Identity
+  contributorId Int?
+  contributor   User?   @relation(fields: [contributorId], references: [id])
+  votes         Vote[]
 
   @@index([lat, lon])
 }
@@ -45,4 +50,33 @@ model Review {
   createdAt DateTime @default(now())
   toiletId  Int
   toilet    Toilet   @relation(fields: [toiletId], references: [id], onDelete: Cascade)
+  authorId  Int?
+  author    User?    @relation(fields: [authorId], references: [id])
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  clerkId      String   @unique
+  email        String?  @unique
+  username     String?
+  role         String   @default("USER") // USER, ADMIN
+  reputation   Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  
+  reviews      Review[]
+  createdToilets Toilet[]
+  votes        Vote[]
+}
+
+model Vote {
+  id        Int      @id @default(autoincrement())
+  type      String   // "VERIFY", "REPORT"
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  toiletId  Int
+  toilet    Toilet   @relation(fields: [toiletId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, toiletId, type])
 }
