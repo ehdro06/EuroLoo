@@ -8,6 +8,7 @@ import { MapContainer } from "@/components/map-container"
 import { useOverpass, type Toilet } from "@/hooks/use-overpass"
 import { AddToiletDialog } from "@/components/add-toilet-dialog"
 import { useToast } from "@/components/ui/use-toast"
+import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
 
 export default function HomePage() {
   const { toast } = useToast()
@@ -131,6 +132,16 @@ export default function HomePage() {
             <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
           </div>
           <div className="flex items-center gap-2">
+            <div className="mr-2">
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <Button variant="ghost" size="sm">Sign In</Button>
+                </SignInButton>
+              </SignedOut>
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+            </div>
             <Button 
                 size="sm" 
                 variant={isAddingToilet ? "destructive" : "secondary"} 
@@ -140,7 +151,13 @@ export default function HomePage() {
                        toast({ description: "Please enable location to add toilets." })
                        handleUserLocationRequest()
                    } else {
-                       setIsAddingToilet(!isAddingToilet)
+                       const newState = !isAddingToilet
+                       setIsAddingToilet(newState)
+                       if (newState) {
+                          setMapCenter(userLocation)
+                          setZoom(18) // Close zoom for precise placement
+                          toast({ description: "Tap on your location to add a toilet." })
+                       }
                    }
                 }}
             >
