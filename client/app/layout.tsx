@@ -4,6 +4,7 @@ import { Geist } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
 import StoreProvider from "@/components/providers"
 import { Toaster } from "@/components/ui/sonner"
+import { ClerkProviderWrapper } from "@/components/clerk-provider-wrapper"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -45,15 +46,17 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
-      <body className="font-sans antialiased">
-        <StoreProvider>
-          {children}
-          <Analytics />
-          <Toaster />
-        </StoreProvider>
-      </body>
-    </html>
+    <ClerkProviderWrapper>
+      <html lang="en">
+        <body className="font-sans antialiased">
+          <StoreProvider>
+            {children}
+            <Analytics />
+            <Toaster />
+          </StoreProvider>
+        </body>
+      </html>
+    </ClerkProviderWrapper>
   )
 }
 
