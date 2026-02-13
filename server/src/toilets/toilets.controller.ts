@@ -136,11 +136,4 @@ export class ToiletsController {
 
     return result;
   }
-
-  @Get('toilets/test/clearcache')
-  async clearCache() {    
-    await this.cacheManager.clear();
-    console.log("cacheCleared");
-    
-  }
 }
