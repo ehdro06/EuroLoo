@@ -1,7 +1,8 @@
-import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException, Param } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException, Param, UseGuards, Req } from '@nestjs/common';
 import { ToiletsService } from './toilets.service.js';
 import { CacheInterceptor, CacheKey, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 
 @Controller('api')
 export class ToiletsController {
@@ -11,7 +12,8 @@ export class ToiletsController {
   ) {}
 
   @Post('toilets')
-  async addToilet(@Body() body: any) {
+  @UseGuards(ClerkAuthGuard)
+  async addToilet(@Body() body: any, @Req() req: any) {
     if (!body.lat || !body.lng || !body.userLat || !body.userLng) {
       throw new BadRequestException('Missing required fields: lat, lng, userLat, userLng');
     }
@@ -22,6 +24,7 @@ export class ToiletsController {
         lng: parseFloat(body.lng),
         userLat: parseFloat(body.userLat),
         userLng: parseFloat(body.userLng),
+        clerkId: req.user.id,
         name: body.name,
         operator: body.operator,
         fee: body.fee,

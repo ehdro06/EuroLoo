@@ -42,8 +42,9 @@ export class ToiletsService {
     isAccessible?: boolean;
     userLat: number;
     userLng: number;
+    clerkId: string;
   }) {
-    const { userLat, userLng, ...toiletData } = data;
+    const { userLat, userLng, clerkId, ...toiletData } = data;
 
     // Validate distance
     const distanceInfo = this.getDistanceFromLatLonInMeters(
@@ -88,6 +89,7 @@ export class ToiletsService {
         lon: lng, 
         externalId,
         isUserCreated: true,
+        contributor: { connect: { clerkId } },
       },
     });
 

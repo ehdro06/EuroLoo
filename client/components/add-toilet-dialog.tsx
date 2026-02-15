@@ -24,7 +24,8 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-import { useToast } from "@/components/ui/use-toast"
+// import { useToast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
 import { useAddToiletMutation } from "@/lib/services/api"
 
 interface AddToiletDialogProps {
@@ -37,7 +38,7 @@ interface AddToiletDialogProps {
 
 export function AddToiletDialog({ open, onOpenChange, location, userLocation, onSuccess }: AddToiletDialogProps) {
   const [addToilet, { isLoading }] = useAddToiletMutation()
-  const { toast } = useToast()
+  // const { toast } = useToast()
   
   const form = useForm({
     defaultValues: {
@@ -55,10 +56,8 @@ export function AddToiletDialog({ open, onOpenChange, location, userLocation, on
   
   const onSubmit = async (data: any) => {
     if (!location || !userLocation) {
-      toast({
-        title: "Error",
+      toast.error("Error", {
         description: "Missing location data",
-        variant: "destructive",
       })
       return
     }
@@ -76,10 +75,7 @@ export function AddToiletDialog({ open, onOpenChange, location, userLocation, on
 
     try {
         await addToilet(payload).unwrap()
-        toast({
-        title: "Success",
-        description: "Toilet added successfully!",
-        })
+        toast.success("Toilet added successfully!")
         onOpenChange(false)
         form.reset()
         onSuccess?.()
@@ -90,11 +86,7 @@ export function AddToiletDialog({ open, onOpenChange, location, userLocation, on
             if (error.data && error.data.message) {
                 msg = error.data.message
             }
-            toast({
-            title: "Error",
-            description: msg,
-            variant: "destructive",
-            })
+            toast.error(msg)
     }
   }
 
