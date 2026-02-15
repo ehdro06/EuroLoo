@@ -266,30 +266,27 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
                 <div className="divide-y">
                   {reviews.map((review) => (
                     <div key={review.id} className="py-4 first:pt-0">
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Avatar className="h-6 w-6">
-                            <AvatarFallback className="text-[10px] bg-slate-100">
-                               <User className="h-3 w-3 text-slate-500" />
-                            </AvatarFallback>
-                          </Avatar>
-                          <div className="flex flex-col">
-                            <span className="text-xs text-muted-foreground">Anonymous User</span>
-                            <div className="flex items-center">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex flex-col gap-1">
+                          <span className="text-sm font-semibold text-slate-900">
+                              {review.author?.username || "Traveler"}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <div className="flex">
                               {[1, 2, 3, 4, 5].map((star) => (
                                 <Star
                                   key={star}
                                   className={`h-3 w-3 ${review.rating >= star ? "fill-yellow-400 text-yellow-400" : "text-slate-200"}`}
                                 />
                               ))}
-                              <span className="text-[10px] text-muted-foreground ml-2">
-                                {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : 'Just now'}
-                              </span>
                             </div>
+                            <span className="text-[10px] text-muted-foreground">
+                              {review.createdAt ? new Date(review.createdAt).toLocaleDateString() : 'Just now'}
+                            </span>
                           </div>
                         </div>
                       </div>
-                      <div className="text-sm text-slate-700 whitespace-pre-wrap pl-8">
+                      <div className="text-sm text-slate-700 whitespace-pre-wrap">
                         {review.content}
                       </div>
                     </div>

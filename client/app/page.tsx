@@ -7,11 +7,14 @@ import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
 import { useOverpass, type Toilet } from "@/hooks/use-overpass"
 import { AddToiletDialog } from "@/components/add-toilet-dialog"
-import { useToast } from "@/components/ui/use-toast"
-import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
+// import { useToast } from "@/components/ui/use-toast"
+import { toast } from "sonner"
+import { SignedIn, SignedOut, SignInButton, UserButton, useClerk, useUser } from "@clerk/nextjs";
 
 export default function HomePage() {
-  const { toast } = useToast()
+  // const { toast } = useToast()
+  const { openSignIn } = useClerk();
+  const { user } = useUser();
   const [showFreeOnly, setShowFreeOnly] = useState(false)
   const [selectedToilet, setSelectedToilet] = useState<Toilet | null>(null)
 
@@ -59,7 +62,7 @@ export default function HomePage() {
 
   const handleUserLocationRequest = () => {
     if (!navigator.geolocation) {
-         toast({ title: "Error", description: "Geolocation not supported", variant: "destructive" })
+         toast.error("Error", { description: "Geolocation not supported" })
          return
     }
 
@@ -71,7 +74,7 @@ export default function HomePage() {
         setZoom(16) // Zoom in when locating
       },
       (err) => {
-         toast({ title: "Location Error", description: "Could not retrieve location. Please check permissions.", variant: "destructive" })
+         toast.error("Location Error", { description: "Could not retrieve location. Please check permissions." })
       },
       { enableHighAccuracy: true }
     )
@@ -147,8 +150,17 @@ export default function HomePage() {
                 variant={isAddingToilet ? "destructive" : "secondary"} 
                 className="gap-2"
                 onClick={() => {
+                   if (!user) {
+                       toast("Help us keep EuroLoo clean", {
+                           description: "Please sign in to add locations. We use accounts to prevent spam and ensure quality data for everyone.",
+                           duration: 5000,
+                       });
+                       openSignIn();
+                       return;
+                   }
+
                    if (!userLocation) {
-                       toast({ description: "Please enable location to add toilets." })
+                       toast.info("Please enable location first", { description: "We need your location to let you add a toilet." })
                        handleUserLocationRequest()
                    } else {
                        const newState = !isAddingToilet
@@ -156,7 +168,7 @@ export default function HomePage() {
                        if (newState) {
                           setMapCenter(userLocation)
                           setZoom(18) // Close zoom for precise placement
-                          toast({ description: "Tap on your location to add a toilet." })
+                          toast("Tap the map to add a toilet")
                        }
                    }
                 }}
@@ -210,7 +222,7 @@ export default function HomePage() {
              if (!userLocation) return
              const d = getDistanceFromLatLonInMeters(userLocation[0], userLocation[1], latLng[0], latLng[1])
              if (d > 50) {
-                 toast({ title: "Too far", description: "You must select a location within 50m of your position.", variant: "destructive" })
+                 toast.error("Location too far", { description: "You must be within 50m of the toilet to add it." })
              } else {
                  setNewToiletLocation({ lat: latLng[0], lng: latLng[1] })
                  setDialogOpen(true)

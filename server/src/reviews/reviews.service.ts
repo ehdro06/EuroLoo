@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 export class ReviewsService {
   constructor(private prisma: PrismaService) {}
 
-  async create(createReviewDto: CreateReviewDto) {
+  async create(createReviewDto: CreateReviewDto, clerkId?: string) {
     const { externalId, content, rating } = createReviewDto;
     return this.prisma.review.create({
       data: {
@@ -18,7 +18,19 @@ export class ReviewsService {
             externalId,
           },
         },
+        author: clerkId ? {
+          connect: { clerkId },
+        } : undefined,
       },
+      include: {
+        author: {
+          select: {
+            username: true,
+            id: true,
+            clerkId: true,
+          }
+        }
+      }
     });
   }
 
@@ -38,6 +50,16 @@ export class ReviewsService {
         toilet: {
           externalId,
         },
+      },
+      include: {
+        author: {
+          select: {
+            username: true,
+            id: true,
+            clerkId: true,
+            // Maybe add reputation later
+          }
+        }
       },
       orderBy: {
         id: 'desc',

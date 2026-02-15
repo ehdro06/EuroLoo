@@ -35,13 +35,12 @@ export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
     e.preventDefault()
 
     if (!externalId) {
-      alert("Error: Toilet ID is missing. Please refresh the page.")
+      toast.error("Error: Toilet ID is missing. Please refresh the page.")
       return
     }
 
     if (rating === 0) {
-      // toast.error("Please select a star rating")
-      alert("Please select a star rating") 
+      toast.error("Please select a star rating") 
       return
     }
 
@@ -68,7 +67,7 @@ export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
         content: finalContent.trim(),
       }).unwrap()
 
-      // toast.success("Review submitted!")
+      toast.success("Review submitted!")
       setRating(0)
       setComment("")
       setCleanliness("3")
@@ -77,7 +76,7 @@ export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
       onSuccess?.()
     } catch (error) {
       console.error("Failed to submit review:", error)
-      // toast.error("Failed to submit review")
+      toast.error("Failed to submit review")
     }
   }
 
