@@ -6,6 +6,7 @@ import { AppController } from './app.controller.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { TestModule } from './test/test.module.js';
+import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
   imports: [
@@ -13,11 +14,17 @@ import { TestModule } from './test/test.module.js';
       isGlobal: true,
       envFilePath: ['.env.local', '.env'], // Load .env.local first
     }),
+    CacheModule.register({
+      isGlobal: true,
+      ttl: 3600000, 
+      max: 100,
+    }),
     PrismaModule,
     ToiletsModule,
     ReviewsModule,
     WebhooksModule,
     TestModule,
+
   ],
   controllers: [AppController],
 })

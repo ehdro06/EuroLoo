@@ -7,11 +7,7 @@ import { PrismaModule } from '../prisma/prisma.module.js';
 
 @Module({
   imports: [
-    HttpModule,
-    CacheModule.register({
-      ttl: 3600000, 
-      max: 100,
-    }),
+    HttpModule,    
     PrismaModule, 
   ],
   controllers: [ToiletsController],
