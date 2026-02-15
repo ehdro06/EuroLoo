@@ -18,12 +18,19 @@ export interface Toilet {
   verifyCount?: number;
 }
 
+export interface Author {
+    id: number;
+    username: string | null;
+    clerkId: string;
+}
+
 export interface Review {
   id: number;
   content: string;
   rating: number;
   createdAt: string;
   toiletId: number;
+  author?: Author;
 }
 
 interface AddReviewRequest {
@@ -43,7 +50,22 @@ interface AddReviewRequest {
 
 export const api = createApi({
   reducerPath: 'api',
-  baseQuery: fetchBaseQuery({ baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000' }),
+  baseQuery: fetchBaseQuery({
+    baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
+    prepareHeaders: async (headers) => {
+      if (typeof window !== 'undefined' && (window as any).Clerk?.session) {
+        try {
+          const token = await (window as any).Clerk.session.getToken();
+          if (token) {
+            headers.set('Authorization', `Bearer ${token}`);
+          }
+        } catch (e) {
+          console.error('Failed to get Clerk token', e);
+        }
+      }
+      return headers;
+    },
+  }),
   tagTypes: ['Reviews', 'Toilets'],
   endpoints: (builder) => ({
     getToilets: builder.query<Toilet[], { lat: number; lng: number; radius?: number }>({
