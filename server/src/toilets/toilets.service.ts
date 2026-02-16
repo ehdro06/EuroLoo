@@ -103,39 +103,107 @@ export class ToiletsService {
     return newToilet;
   }
 
-  async reportToilet(id: number) {
-    let toilet = await this.prisma.toilet.update({
-      where: { id },
-      data: {
-        reportCount: { increment: 1 },
+  async reportToilet(id: number, clerkId: string) {
+    // Ensure User exists
+    const user = await this.prisma.user.upsert({
+      where: { clerkId },
+      update: {},
+      create: { clerkId, role: 'USER' },
+    });
+
+    // Check for existing vote
+    const existingVote = await this.prisma.vote.findFirst({
+      where: {
+        userId: user.id,
+        toiletId: id,
+        type: 'REPORT',
       },
     });
 
-    // Auto-hide logic: If reports > verifies + 3, hide it
-    if (toilet.reportCount >= toilet.verifyCount + 3) {
-      toilet = await this.prisma.toilet.update({
-        where: { id },
-        data: { isHidden: true },
-      });
+    if (existingVote) {
+      throw new Error('You have already reported this toilet.');
     }
+
+    // Create Vote and Increment Counter
+    // Using transaction for atomicity
+    const toilet = await this.prisma.$transaction(async (tx) => {
+      await tx.vote.create({
+        data: {
+          type: 'REPORT',
+          user: { connect: { id: user.id } },
+          toilet: { connect: { id } },
+        },
+      });
+
+      let updatedToilet = await tx.toilet.update({
+        where: { id },
+        data: {
+          reportCount: { increment: 1 },
+        },
+      });
+
+      // Auto-hide logic: If reports > verifies + 3, hide it
+      if (updatedToilet.reportCount >= updatedToilet.verifyCount + 3) {
+        updatedToilet = await tx.toilet.update({
+          where: { id },
+          data: { isHidden: true },
+        });
+      }
+      
+      return updatedToilet;
+    });
+
     return toilet;
   }
 
-  async verifyToilet(id: number) {
-    let toilet = await this.prisma.toilet.update({
-      where: { id },
-      data: {
-        verifyCount: { increment: 1 },
+  async verifyToilet(id: number, clerkId: string) {
+    // Ensure User exists
+    const user = await this.prisma.user.upsert({
+      where: { clerkId },
+      update: {},
+      create: { clerkId, role: 'USER' },
+    });
+
+    // Check for existing vote
+    const existingVote = await this.prisma.vote.findFirst({
+      where: {
+        userId: user.id,
+        toiletId: id,
+        type: 'VERIFY',
       },
     });
 
-    // Auto-verify logic: If verifyCount >= 3, mark as verified
-    if (toilet.verifyCount >= 3 && !toilet.isVerified) {
-      toilet = await this.prisma.toilet.update({
-        where: { id },
-        data: { isVerified: true },
-      });
+    if (existingVote) {
+      throw new Error('You have already verified this toilet.');
     }
+
+    // Create Vote and Increment Counter
+    const toilet = await this.prisma.$transaction(async (tx) => {
+      await tx.vote.create({
+        data: {
+          type: 'VERIFY',
+          user: { connect: { id: user.id } },
+          toilet: { connect: { id } },
+        },
+      });
+
+      let updatedToilet = await tx.toilet.update({
+        where: { id },
+        data: {
+          verifyCount: { increment: 1 },
+        },
+      });
+
+      // Auto-verify logic: If verifyCount >= 3, mark as verified
+      if (updatedToilet.verifyCount >= 3 && !updatedToilet.isVerified) {
+        updatedToilet = await tx.toilet.update({
+          where: { id },
+          data: { isVerified: true },
+        });
+      }
+      return updatedToilet;
+    });
+
     console.log(toilet);
     return toilet;
   }
