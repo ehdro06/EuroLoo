@@ -10,6 +10,7 @@ import { useGetReviewsByToiletQuery, useReportToiletMutation, useVerifyToiletMut
 import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"
+import { useUser, useClerk } from "@clerk/nextjs"
 
 interface ToiletDrawerProps {
   toilet: Toilet | null
@@ -18,6 +19,8 @@ interface ToiletDrawerProps {
 }
 
 export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) {
+  const { user } = useUser()
+  const { openSignIn } = useClerk()
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [hasVotedLocally, setHasVotedLocally] = useState(false) 
   const externalId = toilet?.externalId || ""
@@ -55,51 +58,52 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
 
   const handleVerify = async () => {
     if (!toilet) return
-    
-    // 1. Hide the poll box instantly
-    markAsVoted(toilet.id)
-    toast.success("Thanks for verifying this toilet!")
 
-    // 2. Optimistically update the badge if we predict it will flip
-    //    We don't wait for server response to show the user the result of their action IF it hits the threshold.
-    //    We'll confirm with server response.
-    const currentCount = toilet.verifyCount || 0;
-    if ((currentCount + 1) >= 3) {
-        setIsVerified(true);
+    if (!user) {
+      toast.info("Please sign in", { description: "You need an account to verify toilets." })
+      setTimeout(() => openSignIn(), 1500)
+      return
     }
     
+    // 1. Hide the poll box instantly (optimistic)
+    setHasVotedLocally(true)
+    
     try {
-      // 3. Send Request
-      const updatedToilet = await verifyToilet(toilet.id).unwrap()
-
-      // 4. Confirm with source of truth from the mutation response
-      if (updatedToilet.isVerified) {
-         if (!isVerified) toast.success("Congratulations! This toilet is now Verified!")
-         setIsVerified(true)
-      } else {
-         // Revert if we optimistically updated but server says no (rare race condition)
-         setIsVerified(false)
-      }
-    } catch (err) {
+      // 2. Send Request
+      await verifyToilet(toilet.id).unwrap()
+      toast.success("Thanks for verifying!")
+      
+      // 3. Check badge status
+      // We rely on the cache invalidation to re-fetch the toilet data globally
+      // but for immediate feedback we assume success
+      setIsVerified(true) // Optimistic
+    } catch (err: any) {
       console.error("Failed to verify toilet", err)
-      setIsVerified(toilet.isVerified || false) // Revert on error
-      toast.error("Failed to verify toilet")
+      setHasVotedLocally(false) // Re-enable buttons
+      const msg = err.data?.message || err.message || "Failed to verify"
+      toast.error(msg)
     }
   }
 
   const handleReport = async () => {
     if (!toilet) return
-    markAsVoted(toilet.id)
 
-    // Auto-hide logic prediction (reports > verifies + 3)
-    // We could close the drawer here optimistically if we wanted to be aggressive
-    // But for now just hiding the poll box is enough feedback.
+    if (!user) {
+      toast.info("Please sign in", { description: "You need an account to report issues." })
+      setTimeout(() => openSignIn(), 1500)
+      return
+    }
+
+    setHasVotedLocally(true)
 
     try {
       await reportToilet(toilet.id).unwrap()
-      toast.success("Report submitted. Thanks for helping!")
-    } catch (err) {
-      console.error("Failed to submit report", err)
+      toast.success("Report submitted. Thanks!")
+    } catch (err: any) {
+      console.error("Failed to report", err)
+      setHasVotedLocally(false)
+      const msg = err.data?.message || err.message || "Failed to report"
+      toast.error(msg)
     }
   }
 

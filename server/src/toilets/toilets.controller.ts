@@ -113,12 +113,13 @@ export class ToiletsController {
   }
 
   @Post('toilets/:id/report')
-  async reportToilet(@Param('id') id: string) {
+  @UseGuards(ClerkAuthGuard)
+  async reportToilet(@Param('id') id: string, @Req() req: any) {
     const toiletId = parseInt(id, 10);
     if (isNaN(toiletId)) {
       throw new BadRequestException('Invalid toilet ID');
     }
-    const result = await this.toiletsService.reportToilet(toiletId);
+    const result = await this.toiletsService.reportToilet(toiletId, req.user.id);
     
     // Invalidate cache so everyone sees this toilet is hidden/reported
     await this.cacheManager.clear();
@@ -127,12 +128,13 @@ export class ToiletsController {
   }
 
   @Post('toilets/:id/verify')
-  async verifyToilet(@Param('id') id: string) {
+  @UseGuards(ClerkAuthGuard)
+  async verifyToilet(@Param('id') id: string, @Req() req: any) {
     const toiletId = parseInt(id, 10);
     if (isNaN(toiletId)) {
       throw new BadRequestException('Invalid toilet ID');
     }
-    const result = await this.toiletsService.verifyToilet(toiletId);
+    const result = await this.toiletsService.verifyToilet(toiletId, req.user.id);
 
     // Invalidate cache so everyone sees the new Verified status
     await this.cacheManager.clear();
