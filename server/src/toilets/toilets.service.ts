@@ -208,6 +208,33 @@ export class ToiletsService {
     return toilet;
   }
 
+  // --- Admin Methods ---
+
+  async findHidden() {
+    return this.prisma.toilet.findMany({
+      where: { isHidden: true },
+      orderBy: { updatedAt: 'desc' },
+    });
+  }
+
+  async restoreToilet(id: number) {
+    return this.prisma.toilet.update({
+      where: { id },
+      data: { 
+        isHidden: false,
+        reportCount: 0 // Optionally reset reports on restore
+      },
+    });
+  }
+
+  async deleteToilet(id: number) {
+    return this.prisma.toilet.delete({
+      where: { id },
+    });
+  }
+
+  // --- Helpers ---
+
   private getDistanceFromLatLonInMeters(
     lat1: number,
     lon1: number,

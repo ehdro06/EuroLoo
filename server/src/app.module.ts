@@ -6,6 +6,7 @@ import { AppController } from './app.controller.js';
 import { PrismaModule } from './prisma/prisma.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { TestModule } from './test/test.module.js';
+import { UsersModule } from './users/users.module.js';
 import { CacheModule } from '@nestjs/cache-manager';
 
 @Module({
@@ -22,6 +23,7 @@ import { CacheModule } from '@nestjs/cache-manager';
     PrismaModule,
     ToiletsModule,
     ReviewsModule,
+    UsersModule,
     WebhooksModule,
     TestModule,
 

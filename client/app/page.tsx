@@ -135,13 +135,18 @@ export default function HomePage() {
             <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
           </div>
           <div className="flex items-center gap-2">
-            <div className="mr-2">
+            <div className="flex items-center gap-2 mr-2">
               <SignedOut>
                 <SignInButton mode="modal">
                   <Button variant="ghost" size="sm">Sign In</Button>
                 </SignInButton>
               </SignedOut>
               <SignedIn>
+                {user?.publicMetadata?.role === 'admin' && (
+                  <Button size="sm" variant="ghost" asChild>
+                    <a href="/admin">Admin</a>
+                  </Button>
+                )}
                 <UserButton />
               </SignedIn>
             </div>
