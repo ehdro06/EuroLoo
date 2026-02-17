@@ -1,8 +1,10 @@
-import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException, Param, UseGuards, Req, Delete } from '@nestjs/common';
 import { ToiletsService } from './toilets.service.js';
 import { CacheInterceptor, CacheKey, CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
+import { Roles } from '../auth/roles.decorator.js';
+import { RolesGuard } from '../auth/roles.guard.js';
 
 @Controller('api')
 export class ToiletsController {
@@ -10,6 +12,40 @@ export class ToiletsController {
     private readonly toiletsService: ToiletsService,
     @Inject(CACHE_MANAGER) private cacheManager: Cache
   ) {}
+
+  @Get('toilets/hidden')
+  @UseGuards(ClerkAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async getHiddenToilets() {
+    return this.toiletsService.findHidden();
+  }
+
+  @Post('toilets/:id/restore')
+  @UseGuards(ClerkAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async restoreToilet(@Param('id') id: string) {
+    const toiletId = parseInt(id, 10);
+    if (isNaN(toiletId)) throw new BadRequestException('Invalid toilet ID');
+    
+    // Call the service helper
+    await this.toiletsService.restoreToilet(toiletId);
+    
+    // Invalidate cache
+    await this.cacheManager.clear();
+    return { success: true };
+  }
+
+  @Delete('toilets/:id')
+  @UseGuards(ClerkAuthGuard, RolesGuard)
+  @Roles('ADMIN')
+  async deleteToilet(@Param('id') id: string) {
+    const toiletId = parseInt(id, 10);
+    if (isNaN(toiletId)) throw new BadRequestException('Invalid toilet ID');
+    
+    await this.toiletsService.deleteToilet(toiletId);
+    await this.cacheManager.clear();
+    return { success: true };
+  }
 
   @Post('toilets')
   @UseGuards(ClerkAuthGuard)

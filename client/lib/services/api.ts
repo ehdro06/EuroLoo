@@ -16,6 +16,16 @@ export interface Toilet {
   isVerified?: boolean;
   reportCount?: number;
   verifyCount?: number;
+  isHidden?: boolean;
+}
+
+export interface User {
+    id: number;
+    email: string | null;
+    username: string | null;
+    role: 'USER' | 'ADMIN';
+    clerkId: string;
+    createdAt: string;
 }
 
 export interface Author {
@@ -66,7 +76,7 @@ export const api = createApi({
       return headers;
     },
   }),
-  tagTypes: ['Reviews', 'Toilets'],
+  tagTypes: ['Reviews', 'Toilets', 'HiddenToilets', 'Users'],
   endpoints: (builder) => ({
     getToilets: builder.query<Toilet[], { lat: number; lng: number; radius?: number }>({
       query: ({ lat, lng, radius }) => ({
@@ -113,6 +123,38 @@ export const api = createApi({
       }),
       invalidatesTags: ['Toilets'],
     }),
+    
+    // --- Admin Endpoints ---
+    getHiddenToilets: builder.query<Toilet[], void>({
+      query: () => '/api/toilets/hidden',
+      providesTags: ['HiddenToilets'],
+    }),
+    restoreToilet: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/api/toilets/${id}/restore`,
+        method: 'POST',
+      }),
+      invalidatesTags: ['HiddenToilets', 'Toilets'],
+    }),
+    deleteToilet: builder.mutation<void, number>({
+      query: (id) => ({
+        url: `/api/toilets/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['HiddenToilets', 'Toilets'],
+    }),
+    getAllUsers: builder.query<User[], void>({
+      query: () => '/users',
+      providesTags: ['Users'],
+    }),
+    updateUserRole: builder.mutation<User, { clerkId: string; role: 'USER' | 'ADMIN' }>({
+      query: ({ clerkId, role }) => ({
+        url: `/users/${clerkId}/role`,
+        method: 'POST',
+        body: { role },
+      }),
+      invalidatesTags: ['Users'],
+    }),
   }),
 });
 
@@ -123,5 +165,10 @@ export const {
     useGetReviewsByToiletQuery, 
     useAddToiletMutation,
     useReportToiletMutation,
-    useVerifyToiletMutation
+    useVerifyToiletMutation,
+    useGetHiddenToiletsQuery,
+    useRestoreToiletMutation,
+    useDeleteToiletMutation,
+    useGetAllUsersQuery,
+    useUpdateUserRoleMutation
 } = api;
