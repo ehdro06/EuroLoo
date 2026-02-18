@@ -5,6 +5,7 @@ import { Analytics } from "@vercel/analytics/next"
 import StoreProvider from "@/components/providers"
 import { Toaster } from "@/components/ui/sonner"
 import { ClerkProviderWrapper } from "@/components/clerk-provider-wrapper"
+import { GlobalLoading } from "@/components/global-loading"
 import "./globals.css"
 
 const _geist = Geist({ subsets: ["latin"] })
@@ -12,23 +13,18 @@ const _geist = Geist({ subsets: ["latin"] })
 export const metadata: Metadata = {
   title: "EuroLoo - Privacy-First Public Toilet Finder",
   description: "Find public toilets across Europe. Privacy-friendly, no tracking, powered by open data.",
-  generator: "v0.app",
+  manifest: "/manifest.json",
   icons: {
-    icon: [
-      {
-        url: "/icon-light-32x32.png",
-        media: "(prefers-color-scheme: light)",
-      },
-      {
-        url: "/icon-dark-32x32.png",
-        media: "(prefers-color-scheme: dark)",
-      },
-      {
-        url: "/icon.svg",
-        type: "image/svg+xml",
-      },
-    ],
+    icon: "/icon.svg",
     apple: "/apple-icon.png",
+  },
+  openGraph: {
+    type: "website",
+    url: "https://euroloo.app",
+    title: "EuroLoo",
+    description: "Find free toilets near you",
+    siteName: "EuroLoo",
+    images: [{ url: "/icon.svg" }],
   },
 }
 
@@ -53,6 +49,7 @@ export default function RootLayout({
             {children}
             <Analytics />
             <Toaster />
+            <GlobalLoading />
           </StoreProvider>
         </body>
       </html>

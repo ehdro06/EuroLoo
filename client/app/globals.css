@@ -119,6 +119,12 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden; /* Prevent pull-to-refresh on mobile */
+    overscroll-behavior: none; /* Prevent rubber-banding */
+  }
   body {
     @apply bg-background text-foreground;
   }

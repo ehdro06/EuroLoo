@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { MapPin, Filter, ShieldCheck, Plus } from "lucide-react"
+import { Filter, ShieldCheck, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
@@ -10,6 +10,7 @@ import { AddToiletDialog } from "@/components/add-toilet-dialog"
 // import { useToast } from "@/components/ui/use-toast"
 import { toast } from "sonner"
 import { SignedIn, SignedOut, SignInButton, UserButton, useClerk, useUser } from "@clerk/nextjs";
+import Image from "next/image"
 
 export default function HomePage() {
   // const { toast } = useToast()
@@ -131,7 +132,7 @@ export default function HomePage() {
       <header className="z-10 shrink-0 border-b border-black/10 bg-white">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
-            <MapPin className="h-6 w-6" aria-hidden="true" />
+            <Image src="/icon.svg" width={46} height={46} alt="EuroLoo Logo" className="w-8 h-8" />
             <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
           </div>
           <div className="flex items-center gap-2">
