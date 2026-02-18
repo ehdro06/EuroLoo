@@ -3,6 +3,7 @@ import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { UsersService } from './users.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
+import { Role } from '@prisma/client';
 
 @Controller('users')
 export class UsersController {
@@ -31,7 +32,7 @@ export class UsersController {
   @Roles('ADMIN')
   async updateUserRole(
     @Param('clerkId') clerkId: string, 
-    @Body('role') role: string
+    @Body('role') role: Role
   ) {
     if (!['USER', 'ADMIN'].includes(role)) {
         throw new ForbiddenException('Invalid role');

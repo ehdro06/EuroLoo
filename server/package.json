@@ -29,6 +29,7 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.1.12",
     "@prisma/client": "6.0.0",
+    "@clerk/clerk-sdk-node": "^5.1.6",
     "axios": "^1.13.4",
     "cache-manager": "^7.2.8",
     "class-transformer": "^0.5.1",
