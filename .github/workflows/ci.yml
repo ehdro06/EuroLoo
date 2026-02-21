@@ -1,0 +1,56 @@
+name: EuroLoo CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  validate-code:
+    name: Lint and Build
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1. Download the code
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2. Install pnpm
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v3
+        with:
+          version: 8
+
+      # 3. Setup Node.js (Using v20 as the current LTS standard for Next.js/NestJS)
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'pnpm'
+
+      # --- BACKEND (NESTJS) CHECKS ---
+      - name: Install Server Dependencies
+        working-directory: ./server
+        run: pnpm install --frozen-lockfile # Ensures exact versions from lockfile are used
+
+      - name: Lint Server
+        working-directory: ./server
+        run: pnpm run lint
+
+      - name: Build Server
+        working-directory: ./server
+        run: pnpm run build
+
+      # --- FRONTEND (NEXT.JS) CHECKS ---
+      - name: Install Client Dependencies
+        working-directory: ./client
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint Client
+        working-directory: ./client
+        run: pnpm run lint
+
+      - name: Build Client
+        working-directory: ./client
+        run: pnpm run build
