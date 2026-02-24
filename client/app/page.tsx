@@ -42,7 +42,7 @@ export default function HomePage() {
   const pendingZoomRef = useRef<number | null>(null)
   const lastQueryCenterRef = useRef<[number, number]>(mapCenter)
   const debounceTimer = useRef<number | null>(null)
-  const DEBOUNCE_MS = 1000
+  const DEBOUNCE_MS = 500
   const MOVE_THRESHOLD = 0.002 // Approx 200m
 
   // Initial Geolocation
