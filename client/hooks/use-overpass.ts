@@ -41,15 +41,20 @@ export function useOverpass(
 ) {
   const radius = calculateRadiusMeters(center[0], zoom)
   
-  // Stabilize inputs for RTK Query Cache (2 decimal places ~1.1km precision)
-  // This matches the previous manual fetch implementation
-  const lat = parseFloat(center[0].toFixed(2))
-  const lng = parseFloat(center[1].toFixed(2))
+  // Stabilize inputs for RTK Query Cache (1 decimal place ~11.1km precision)
+  // We want coarse buckets so we hit the cache more often.
+  // 1 decimal place = ~11.1km. 2 decimal places = ~1.11km.
+  const lat = parseFloat(center[0].toFixed(1))
+  const lng = parseFloat(center[1].toFixed(1))
+
+  // Ensure we fetch a "safe area" around the user so they can pan without refetching immediately.
+  // We take the larger of the view radius OR a minimum safe radius (e.g. 5km).
+  const fetchRadius = Math.max(radius, 5000)
 
   // Smart caching: Keep track of the query args that were actually fetched.
   // If the new request is contained within the previously fetched area, don't update the query args.
   // This allows us to "zoom in" without hitting the API again.
-  const [queryArgs, setQueryArgs] = useState({ lat, lng, radius })
+  const [queryArgs, setQueryArgs] = useState({ lat, lng, radius: fetchRadius })
 
   useEffect(() => {
     // 1. Calculate distance from current request center to the cached center
@@ -67,12 +72,13 @@ export function useOverpass(
     if (!isContained) {
       // Prevent infinite loop: if the inputs haven't changed but isContained is false 
       // (e.g. because we are in a skipped state > MAX_RADIUS), don't update state.
-      if (queryArgs.lat === lat && queryArgs.lng === lng && queryArgs.radius === radius) {
+      // Use fetchRadius here since that is what we are trying to set
+      if (queryArgs.lat === lat && queryArgs.lng === lng && queryArgs.radius === fetchRadius) {
         return
       }
-      setQueryArgs({ lat, lng, radius })
+      setQueryArgs({ lat, lng, radius: fetchRadius })
     }
-  }, [lat, lng, radius, queryArgs])
+  }, [lat, lng, radius, queryArgs, fetchRadius])
 
   const skip = queryArgs.radius > MAX_RADIUS_METERS
 
