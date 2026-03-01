@@ -5,7 +5,7 @@
   "type": "module",
   "main": "main.ts",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "jest",
     "dev": "nodemon --exec node --loader ts-node/esm main.ts",
     "build": "npx prisma generate && tsc",
     "start": "node --loader ts-node/esm main.ts",
@@ -21,6 +21,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
+    "@clerk/clerk-sdk-node": "^5.1.6",
     "@nestjs/axios": "^4.0.1",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.1.12",
@@ -29,7 +30,6 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.1.12",
     "@prisma/client": "6.0.0",
-    "@clerk/clerk-sdk-node": "^5.1.6",
     "axios": "^1.13.4",
     "cache-manager": "^7.2.8",
     "class-transformer": "^0.5.1",
@@ -50,6 +50,7 @@
     "prisma": "6.0.0",
     "supertest": "^7.2.2",
     "ts-jest": "^29.4.6",
+    "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

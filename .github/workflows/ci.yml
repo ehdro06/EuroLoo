@@ -38,6 +38,10 @@ jobs:
         working-directory: ./server
         run: pnpm run lint
 
+      - name: Test Server
+        working-directory: ./server
+        run: pnpm run test
+
       - name: Build Server
         working-directory: ./server
         run: pnpm run build
@@ -50,6 +54,10 @@ jobs:
       - name: Lint Client
         working-directory: ./client
         run: pnpm run lint
+
+      - name: Test Client
+        working-directory: ./client
+        run: pnpm run test
 
       - name: Build Client
         working-directory: ./client
