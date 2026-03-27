@@ -6,7 +6,7 @@ async function bootstrap() {
     rawBody: true,
   });
   app.enableCors(); // Enable CORS for client
-  await app.listen(process.env.PORT || 4000);
+  await app.listen(process.env.PORT || 4000, '0.0.0.0');
   console.log(`NestJS Server running on port ${process.env.PORT || 4000}`);
 }
 bootstrap();
