@@ -19,5 +19,9 @@
       "jest",
       "node"
     ]
-  }
+  },
+  "exclude": [
+    "**/*.spec.ts",
+    "**/*.e2e-spec.ts"
+  ]
 }
