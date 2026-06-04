@@ -61,6 +61,16 @@ Access to sanitation is a fundamental human right. EuroLoo helps people quickly 
 - PostgreSQL
 - Clerk SDK
 
+## System Architecture
+
+EuroLoo operates on a distributed, serverless architecture designed for rapid scaling and low maintenance overhead:
+
+- **Frontend (Client):** [Next.js](https://nextjs.org/) deployed on **Vercel**. Handles SSR/SSG and edge routing.
+- **Backend (API):** [NestJS](https://nestjs.com/) deployed on **Google Cloud Run**. Stateless, auto-scaling microVMs processing business logic and REST endpoints.
+- **Database:** PostgreSQL with **PostGIS** extension, hosted on **Neon** serverless database. Utilizes connection pooling (`pgbouncer`) for rapid container scaling.
+- **Authentication:** [Clerk](https://clerk.dev/) for identity management and JWT verification.
+- **CI/CD:** Google Cloud Build automates the Docker pipeline from GitHub `main` branch directly to Cloud Run.
+
 ## Future Work (Scale-Oriented)
 
 - Per-route/per-user adaptive rate limits
