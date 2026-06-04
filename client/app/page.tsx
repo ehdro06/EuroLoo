@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Filter, ShieldCheck, Plus } from "lucide-react"
+import { Filter, ShieldCheck, Plus, LocateFixed } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
@@ -120,10 +120,6 @@ export default function HomePage() {
     }, DEBOUNCE_MS)
   }
 
-  console.log("[v0] Toilets loaded:", toilets.length)
-  console.log("[v0] Loading state:", loading)
-  console.log("[v0] Error state:", error)
-
   const filteredToilets = showFreeOnly ? toilets.filter((t) => t.isFree) : toilets
 
   return (
@@ -133,7 +129,10 @@ export default function HomePage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <div className="flex items-center gap-2">
             <Image src="/icon.svg" width={46} height={46} alt="EuroLoo Logo" className="w-8 h-8" />
-            <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
+            <div>
+              <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
+              <p className="hidden text-xs text-black/70 sm:block">Find nearby public toilets fast. Privacy-first by default.</p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 mr-2">
@@ -183,6 +182,16 @@ export default function HomePage() {
                 <span className="hidden sm:inline">{isAddingToilet ? "Cancel" : "Add Missing"}</span>
             </Button>
             <Button
+              variant="outline"
+              size="sm"
+              onClick={handleUserLocationRequest}
+              className="gap-2"
+              aria-label="Use my current location"
+            >
+              <LocateFixed className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">Use My Location</span>
+            </Button>
+            <Button
               variant={showFreeOnly ? "default" : "outline"}
               size="sm"
               onClick={() => setShowFreeOnly(!showFreeOnly)}
@@ -210,6 +219,13 @@ export default function HomePage() {
             role="alert"
           >
             <p className="text-sm font-medium text-black">{error}</p>
+          </div>
+        )}
+
+        {!loading && !error && filteredToilets.length === 0 && (
+          <div className="absolute left-1/2 top-16 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg">
+            <p className="text-sm font-medium text-black">No toilets found in this area yet.</p>
+            <p className="mt-1 text-xs text-black/70">Move the map or zoom out, then try again.</p>
           </div>
         )}
 
