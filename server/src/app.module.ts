@@ -8,6 +8,7 @@ import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { TestModule } from './test/test.module.js';
 import { UsersModule } from './users/users.module.js';
 import { CacheModule } from '@nestjs/cache-manager';
+import { SimpleRateLimitGuard } from './common/guards/simple-rate-limit.guard.js';
 
 @Module({
   imports: [
@@ -29,5 +30,6 @@ import { CacheModule } from '@nestjs/cache-manager';
 
   ],
   controllers: [AppController],
+  providers: [SimpleRateLimitGuard],
 })
 export class AppModule {}

@@ -1,40 +1,78 @@
 # EuroLoo wc 🇪🇺
 
-A privacy-first, community-driven public toilet finder for Europe. Powered by open data and modern web technologies.
+A privacy-first, community-driven public toilet finder for Europe, built as a full-stack showcase demo app.
 
-## Why?
+## Why
 
-> "I think free public toilets should get budget before missiles and tanks."
+Access to sanitation is a fundamental human right. EuroLoo helps people quickly find clean, accessible, and free public toilets without sacrificing privacy.
 
-Access to sanitation is a fundamental human right. EuroLoo exists to make finding clean, accessible, and free public toilets easier for everyone, without compromising user privacy.
+## Showcase Demo Architecture
+
+### Deployment Target (What Runs Where)
+
+- **Frontend**: Vercel (Next.js app)
+- **Backend**: GCP Cloud Run (NestJS API)
+- **Database**: Neon (PostgreSQL)
+
+### Environment and Secret Management
+
+- Secrets are configured in deployment dashboards (Vercel, GCP, Neon, Clerk).
+- No secrets should be committed to git.
+- Only template files are committed:
+  - `client/.env.example`
+  - `server/.env.example`
+
+## Links
+
+- **Live URL**: [https://euroloo.app](https://euroloo.app)
+- **Repository**: [https://github.com/ehdro06/euroloo](https://github.com/ehdro06/euroloo)
+- **README**: [https://github.com/ehdro06/euroloo#readme](https://github.com/ehdro06/euroloo#readme)
 
 ## Features
 
-- **🗺️ Open Data**: Powered by OpenStreetMap (OSM) to provide the most comprehensive map of public amenities.
-- **Ey Privacy First**: No invasive tracking. We respect your location data and privacy.
-- **📱 PWA Ready**: Installable on your mobile device for a native app-like experience.
-- **👥 Community Driven**: Users can add new toilets and review existing ones to keep data fresh.
-- **🔒 Secure**: Authentication handled by Clerk, ensuring secure user management.
+- **Open data map discovery** via OpenStreetMap
+- **Community contributions** for add/report/verify flows
+- **Privacy-first UX** with no invasive tracking model
+- **Auth-protected actions** using Clerk + backend guards
+- **Cache-backed API reads** for fast location queries
+
+## Production Readiness Highlights
+
+- `GET /health` is available as a lightweight liveness probe endpoint.
+- Sensitive write routes are protected with route-level rate limiting.
+- Rate-limit settings are controlled through:
+  - `RATE_LIMIT_TTL_MS` (default `60000`)
+  - `RATE_LIMIT_LIMIT` (default `60`)
 
 ## Tech Stack
 
 ### Client (Frontend)
-- **Framework**: [Next.js](https://nextjs.org/) (App Router)
-- **State Management**: Redux Toolkit & RTK Query
-- **Styling**: Tailwind CSS & shadcn/ui (Radix Primitives)
-- **Maps**: Leaflet / React-Leaflet
-- **Auth**: Clerk
+
+- Next.js (App Router)
+- Redux Toolkit + RTK Query
+- Tailwind CSS + shadcn/ui
+- Pigeon Maps
+- Clerk
 
 ### Server (Backend)
-- **Framework**: [NestJS](https://nestjs.com/)
-- **Database**: PostgreSQL (via Docker)
-- **ORM**: Prisma
-- **API**: RESTful API with RTK Query integration
-- **Auth**: Clerk SDK
 
-## Getting Started
+- NestJS
+- Prisma
+- PostgreSQL
+- Clerk SDK
+
+## Future Work (Scale-Oriented)
+
+- Per-route/per-user adaptive rate limits
+- Structured logging + centralized log aggregation
+- Tracing + service-level latency/error dashboards
+- Background jobs for async enrichment and moderation
+- CI/CD promotion gates with smoke checks
+
+## Local Development
 
 ### Prerequisites
+
 - Node.js (v20+)
 - pnpm
 - Docker (for local database)
@@ -43,7 +81,7 @@ Access to sanitation is a fundamental human right. EuroLoo exists to make findin
 
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/euroloo.git
+   git clone https://github.com/ehdro06/euroloo.git
    cd euroloo
    ```
 
@@ -53,10 +91,10 @@ Access to sanitation is a fundamental human right. EuroLoo exists to make findin
    ```
 
 3. Set up environment variables:
-   - Copy `.env.example` to `.env` in both `client` and `server` directories.
-   - Configure your Clerk keys and Database URL.
+   - Copy `.env.example` to `.env` in both `client` and `server`.
+   - Fill Clerk and DB values with your own credentials.
 
-4. Start the database:
+4. Start local database:
    ```bash
    cd server
    docker-compose up -d
@@ -67,22 +105,18 @@ Access to sanitation is a fundamental human right. EuroLoo exists to make findin
    pnpm prisma migrate dev
    ```
 
-6. Start the development servers:
-   
-   **Server:**
-   ```bash
-   cd server
-   pnpm dev
-   ```
-
-   **Client:**
-   ```bash
-   cd client
-   pnpm dev
-   ```
-
-## Contributing
-We welcome contributions! Please open an issue or submit a pull request.
+6. Start development servers:
+   - Server:
+     ```bash
+     cd server
+     pnpm dev
+     ```
+   - Client:
+     ```bash
+     cd client
+     pnpm dev
+     ```
 
 ## License
+
 MIT

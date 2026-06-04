@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useLayoutEffect } from "react"
 import { Map, Marker, Overlay } from "pigeon-maps"
-import { Locate, Check } from "lucide-react"
+import { Locate } from "lucide-react"
 import type { Toilet } from "@/hooks/use-overpass"
 
 interface MapContainerProps {
@@ -32,8 +32,6 @@ export function MapContainer({
   onLocationSelect,
   onUserLocationRequest
 }: MapContainerProps) {
-  console.log("[v0] MapContainer rendering with", toilets.length, "toilets")
-
   // Calculate center and zoom based on toilets unless a controlled `propCenter` is provided
   const computedCenter: [number, number] =
     toilets.length > 0
@@ -84,7 +82,6 @@ export function MapContainer({
 
     // Only force the map to move if the new center is significantly different (> ~1.1 meters)
     if (dist > 0.00001) {
-       console.log("[Map] External center snap detected", dist)
        setTransientCenter(center)
     }
   }, [center])
@@ -100,7 +97,7 @@ export function MapContainer({
   }, [zoom])
 
   useEffect(() => {
-    let timer: NodeJS.Timeout
+    let timer: ReturnType<typeof window.setTimeout> | undefined
     if (loading) {
       // Only show loading indicator if fetching takes longer than 1s
       timer = setTimeout(() => {
@@ -109,7 +106,9 @@ export function MapContainer({
     } else {
       setShowLoading(false)
     }
-    return () => clearTimeout(timer)
+    return () => {
+      if (timer) window.clearTimeout(timer)
+    }
   }, [loading])
 
   useEffect(() => {
@@ -132,7 +131,6 @@ export function MapContainer({
         if (!prev || Math.abs(prev.width - w) >= 3 || Math.abs(prev.height - h) >= 3) {
           sizeRef.current = { width: w, height: h }
           setSize({ width: w, height: h })
-          console.log("[v0] MapContainer size updated:", { width: w, height: h })
         }
       }
     }
@@ -359,6 +357,11 @@ export function MapContainer({
             <div className="h-8 w-8 animate-spin rounded-full border-4 border-black/20 border-t-black" />
             <p className="text-sm font-medium text-black">Loading toilets...</p>
           </div>
+        </div>
+      )}
+      {!showLoading && !loading && toilets.length === 0 && (
+        <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-2 shadow-lg">
+          <p className="text-xs font-medium text-black">No data in this viewport yet. Pan or zoom to explore more areas.</p>
         </div>
       )}
     </div>

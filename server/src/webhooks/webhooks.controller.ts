@@ -1,8 +1,9 @@
-import { Controller, Post, Req, Res, Headers, RawBodyRequest } from '@nestjs/common';
+import { Controller, Post, Req, Res, Headers, RawBodyRequest, UseGuards } from '@nestjs/common';
 import { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { Webhook } from 'svix';
 import { ConfigService } from '@nestjs/config';
+import { SimpleRateLimitGuard } from '../common/guards/simple-rate-limit.guard.js';
 
 @Controller('api/webhooks')
 export class WebhooksController {
@@ -12,6 +13,7 @@ export class WebhooksController {
   ) {}
 
   @Post('clerk')
+  @UseGuards(SimpleRateLimitGuard)
   async handleClerkWebhook(
     @Req() req: RawBodyRequest<Request>,
     @Res() res: Response,
