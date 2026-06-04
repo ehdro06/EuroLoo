@@ -1,0 +1,26 @@
+steps:
+  # 1. Build the Node.js/Prisma container
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'build'
+      - '-t'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/euroloo-backend:$COMMIT_SHA'
+      - './server'
+
+  # 2. Push the executable image to the Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args: 
+      - 'push'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/euroloo-backend:$COMMIT_SHA'
+
+  # 3. Swap the active Cloud Run container with the new image
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - 'euroloo-git' # Your exact Cloud Run service name
+      - '--image'
+      - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/euroloo-backend:$COMMIT_SHA'
+      - '--region'
+      - 'europe-west1'
