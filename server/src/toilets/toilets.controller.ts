@@ -5,6 +5,7 @@ import { Cache } from 'cache-manager';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
+import { SimpleRateLimitGuard } from '../common/guards/simple-rate-limit.guard.js';
 
 @Controller('api')
 export class ToiletsController {
@@ -48,7 +49,7 @@ export class ToiletsController {
   }
 
   @Post('toilets')
-  @UseGuards(ClerkAuthGuard)
+  @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
   async addToilet(@Body() body: any, @Req() req: any) {
     if (!body.lat || !body.lng || !body.userLat || !body.userLng) {
       throw new BadRequestException('Missing required fields: lat, lng, userLat, userLng');
@@ -97,7 +98,7 @@ export class ToiletsController {
     @Query('radius') radius?: string
   ) {
     if (!lat || !lng) {
-      throw new Error('Missing lat or lng parameters');
+      throw new BadRequestException('Missing required query params: lat, lng');
     }
 
     const latitude = parseFloat(lat);
@@ -113,11 +114,9 @@ export class ToiletsController {
 
     const cachedData = await this.cacheManager.get(cacheKey);
     if (cachedData) {
-      console.log(`Cache HIT for key: ${cacheKey}`);
       return cachedData;
     }
 
-    console.log(`Cache MISS for key: ${cacheKey}`);
     const data = await this.toiletsService.findInRadius(
       parseFloat(roundedLat),
       parseFloat(roundedLng),
@@ -131,6 +130,8 @@ export class ToiletsController {
   }
 
   @Get('debug/cache')
+  @UseGuards(ClerkAuthGuard, RolesGuard)
+  @Roles('ADMIN')
   async getDebugCache() {
     // Note: cache-manager doesn't standardly expose .keys() or .getStats() easily across all stores
     // But for the in-memory store, we can try to access the underlying store
@@ -149,7 +150,7 @@ export class ToiletsController {
   }
 
   @Post('toilets/:id/report')
-  @UseGuards(ClerkAuthGuard)
+  @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
   async reportToilet(@Param('id') id: string, @Req() req: any) {
     const toiletId = parseInt(id, 10);
     if (isNaN(toiletId)) {
@@ -164,7 +165,7 @@ export class ToiletsController {
   }
 
   @Post('toilets/:id/verify')
-  @UseGuards(ClerkAuthGuard)
+  @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
   async verifyToilet(@Param('id') id: string, @Req() req: any) {
     const toiletId = parseInt(id, 10);
     if (isNaN(toiletId)) {

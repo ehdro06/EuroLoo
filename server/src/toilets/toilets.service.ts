@@ -204,7 +204,6 @@ export class ToiletsService {
       return updatedToilet;
     });
 
-    console.log(toilet);
     return toilet;
   }
 
