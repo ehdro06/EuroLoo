@@ -55,8 +55,6 @@ export class WebhooksController {
     // 4. Handle Events
     const { id } = evt.data;
     const eventType = evt.type;
-    console.log(`Webhook received: ${eventType} for user ${id}`);
-
     if (eventType === 'user.created' || eventType === 'user.updated') {
       const { id, email_addresses, username } = evt.data;
       const email = email_addresses[0]?.email_address;
@@ -69,7 +67,6 @@ export class WebhooksController {
         });
 
         if (existingUser && existingUser.clerkId !== id) {
-          console.log(`Merging user ${existingUser.clerkId} to new clerkId ${id}`);
           await this.prisma.user.update({
             where: { email },
             data: { clerkId: id },
@@ -90,12 +87,10 @@ export class WebhooksController {
           role: 'USER', // Default role
         },
       });
-      console.log(`Synced user ${id} to DB`);
     } else if (eventType === 'user.deleted') {
       await this.prisma.user.delete({
         where: { clerkId: id },
-      }).catch(err => console.log('User already deleted or not found'));
-       console.log(`Deleted user ${id} from DB`);
+      }).catch(() => undefined);
     }
 
     return res.status(200).json({ success: true });

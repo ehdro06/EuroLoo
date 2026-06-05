@@ -1,4 +1,4 @@
-# EuroLoo wc 🇪🇺
+# EuroLoo
 
 A privacy-first, community-driven public toilet finder for Europe, built as a full-stack portfolio demo app.
 
@@ -6,13 +6,15 @@ A privacy-first, community-driven public toilet finder for Europe, built as a fu
 
 Access to sanitation is a fundamental human right. EuroLoo helps people quickly find clean, accessible, and free public toilets without sacrificing privacy.
 
-## Portfolio Demo Architecture
+## Architecture
 
-### Deployment Target (What Runs Where)
+EuroLoo runs on a distributed, serverless stack designed for rapid scaling and low maintenance overhead:
 
-- **Frontend**: Vercel (Next.js app)
-- **Backend**: GCP Cloud Run (NestJS API)
-- **Database**: Neon (PostgreSQL)
+- **Frontend (Client):** [Next.js](https://nextjs.org/) on **Vercel** — SSR/SSG and edge routing
+- **Backend (API):** [NestJS](https://nestjs.com/) on **GCP Cloud Run** — stateless, auto-scaling API
+- **Database:** PostgreSQL with **PostGIS** on **Neon** — connection pooling via `pgbouncer`
+- **Authentication:** [Clerk](https://clerk.dev/) for identity management and JWT verification
+- **CI/CD:** Google Cloud Build deploys from GitHub `main` to Cloud Run
 
 ### Environment and Secret Management
 
@@ -26,7 +28,6 @@ Access to sanitation is a fundamental human right. EuroLoo helps people quickly 
 
 - **Live URL**: [https://euroloo.app](https://euroloo.app)
 - **Repository**: [https://github.com/ehdro06/euroloo](https://github.com/ehdro06/euroloo)
-- **README**: [https://github.com/ehdro06/euroloo#readme](https://github.com/ehdro06/euroloo#readme)
 
 ## Features
 
@@ -60,16 +61,6 @@ Access to sanitation is a fundamental human right. EuroLoo helps people quickly 
 - Prisma
 - PostgreSQL
 - Clerk SDK
-
-## System Architecture
-
-EuroLoo operates on a distributed, serverless architecture designed for rapid scaling and low maintenance overhead:
-
-- **Frontend (Client):** [Next.js](https://nextjs.org/) deployed on **Vercel**. Handles SSR/SSG and edge routing.
-- **Backend (API):** [NestJS](https://nestjs.com/) deployed on **Google Cloud Run**. Stateless, auto-scaling microVMs processing business logic and REST endpoints.
-- **Database:** PostgreSQL with **PostGIS** extension, hosted on **Neon** serverless database. Utilizes connection pooling (`pgbouncer`) for rapid container scaling.
-- **Authentication:** [Clerk](https://clerk.dev/) for identity management and JWT verification.
-- **CI/CD:** Google Cloud Build automates the Docker pipeline from GitHub `main` branch directly to Cloud Run.
 
 ## Future Work (Scale-Oriented)
 

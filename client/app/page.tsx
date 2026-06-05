@@ -7,13 +7,11 @@ import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
 import { useOverpass, type Toilet } from "@/hooks/use-overpass"
 import { AddToiletDialog } from "@/components/add-toilet-dialog"
-// import { useToast } from "@/components/ui/use-toast"
 import { toast } from "sonner"
 import { SignedIn, SignedOut, SignInButton, UserButton, useClerk, useUser } from "@clerk/nextjs";
 import Image from "next/image"
 
 export default function HomePage() {
-  // const { toast } = useToast()
   const { openSignIn } = useClerk();
   const { user } = useUser();
   const [showFreeOnly, setShowFreeOnly] = useState(false)
