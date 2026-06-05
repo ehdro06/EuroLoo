@@ -70,6 +70,14 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 - Background jobs for async enrichment and moderation
 - CI/CD promotion gates with smoke checks
 
+### Known Gaps / Next Steps
+
+These are intentional scope boundaries for the current showcase demo, not oversights:
+
+- **Review update/delete**: `PATCH/DELETE /reviews/:id` are rate-limited but still return stub responses; implement real DB operations and decide auth rules (owner-only vs admin-only).
+- **Review route auth**: add guards once ownership/policy is defined for edit and delete flows.
+- **Admin toilet restore/delete**: currently auth-protected but not rate-limited; add limits only if abuse patterns appear.
+
 ## Local Development
 
 ### Prerequisites
