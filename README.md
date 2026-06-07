@@ -1,6 +1,6 @@
 # EuroLoo
 
-A privacy-first, community-driven public toilet finder for Europe, built as a full-stack showcase demo app.
+A privacy-first, community-driven public toilet finder for Europe, built as a full-stack demo app.
 
 ## Why
 
@@ -72,7 +72,7 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 
 ### Known Gaps / Next Steps
 
-These are intentional scope boundaries for the current showcase demo, not oversights:
+These are intentional scope boundaries for the current demo, not oversights:
 
 - **Review update/delete**: `PATCH/DELETE /reviews/:id` are rate-limited but still return stub responses; implement real DB operations and decide auth rules (owner-only vs admin-only).
 - **Review route auth**: add guards once ownership/policy is defined for edit and delete flows.
