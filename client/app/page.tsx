@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { Filter, ShieldCheck, Plus, LocateFixed } from "lucide-react"
+import { Filter, ShieldCheck, Plus, LocateFixed, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
@@ -22,6 +22,7 @@ export default function HomePage() {
   const [isAddingToilet, setIsAddingToilet] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newToiletLocation, setNewToiletLocation] = useState<{lat: number, lng: number} | null>(null)
+  const [isLocating, setIsLocating] = useState(false)
   
   // Controlled map center vs debounced query center
   // `mapCenter` updates immediately so the map can preserve the user's
@@ -65,14 +66,17 @@ export default function HomePage() {
          return
     }
 
+    setIsLocating(true)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
+        setIsLocating(false)
         const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
         setUserLocation(coords)
         setMapCenter(coords)
         setZoom(16) // Zoom in when locating
       },
       (err) => {
+         setIsLocating(false)
          toast.error("Location Error", { description: "Could not retrieve location. Please check permissions." })
       },
       { enableHighAccuracy: true }
@@ -185,9 +189,14 @@ export default function HomePage() {
               onClick={handleUserLocationRequest}
               className="gap-2"
               aria-label="Use my current location"
+              disabled={isLocating}
             >
-              <LocateFixed className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">Use My Location</span>
+              {isLocating ? (
+                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+              ) : (
+                 <LocateFixed className="h-4 w-4" aria-hidden="true" />
+              )}
+              <span className="hidden sm:inline">{isLocating ? "Locating..." : "Use My Location"}</span>
             </Button>
             <Button
               variant={showFreeOnly ? "default" : "outline"}
@@ -238,6 +247,7 @@ export default function HomePage() {
           userLocation={userLocation}
           isSelectingLocation={isAddingToilet}
           onUserLocationRequest={handleUserLocationRequest}
+          isLocating={isLocating}
           onLocationSelect={(latLng) => {
              if (!userLocation) return
              const d = getDistanceFromLatLonInMeters(userLocation[0], userLocation[1], latLng[0], latLng[1])

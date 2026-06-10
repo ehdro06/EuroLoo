@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useLayoutEffect } from "react"
 import { Map, Marker, Overlay } from "pigeon-maps"
-import { Locate } from "lucide-react"
+import { Locate, Loader2 } from "lucide-react"
 import type { Toilet } from "@/hooks/use-overpass"
 
 interface MapContainerProps {
@@ -17,6 +17,7 @@ interface MapContainerProps {
   isSelectingLocation?: boolean
   onLocationSelect?: (latLng: [number, number]) => void
   onUserLocationRequest?: () => void
+  isLocating?: boolean
 }
 
 export function MapContainer({ 
@@ -30,7 +31,8 @@ export function MapContainer({
   userLocation,
   isSelectingLocation,
   onLocationSelect,
-  onUserLocationRequest
+  onUserLocationRequest,
+  isLocating
 }: MapContainerProps) {
   // Calculate center and zoom based on toilets unless a controlled `propCenter` is provided
   const computedCenter: [number, number] =
@@ -273,9 +275,10 @@ export function MapContainer({
         <button
            aria-label="My Location"
            onClick={onUserLocationRequest}
+           disabled={isLocating}
            className="flex h-9 w-9 mb-2 items-center justify-center rounded-md border border-black/10 bg-white/95 text-lg font-medium shadow-sm text-black"
         >
-            <Locate className="h-5 w-5" />
+            {isLocating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Locate className="h-5 w-5" />}
         </button>
 
         <button
