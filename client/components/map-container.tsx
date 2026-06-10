@@ -43,6 +43,7 @@ export function MapContainer({
   const center = propCenter ?? computedCenter
 
   const containerRef = useRef<HTMLDivElement | null>(null)
+  const mapRef = useRef<any>(null)
   const [size, setSize] = useState<{ width: number; height: number } | null>(null)
   const sizeRef = useRef<{ width: number; height: number } | null>(null)
   const trackRef = useRef<HTMLDivElement | null>(null)
@@ -82,7 +83,16 @@ export function MapContainer({
 
     // Only force the map to move if the new center is significantly different (> ~1.1 meters)
     if (dist > 0.00001) {
-       setTransientCenter(center)
+       // Calculate dynamic animation duration based on distance for a normalized speed
+       // 1 degree of lat/lon is roughly 111km. 
+       // We set a base of 300ms, and add 150ms per degree of distance, capped at 2500ms.
+       const dynamicDuration = Math.min(2500, Math.max(300, dist * 150))
+       
+       if (mapRef.current?.setCenterZoomTarget) {
+           mapRef.current.setCenterZoomTarget(center, zoom ?? lastReportedZoom.current, false, null, dynamicDuration)
+       } else {
+           setTransientCenter(center)
+       }
     }
   }, [center])
 
@@ -177,7 +187,7 @@ export function MapContainer({
   return (
     <div 
       ref={containerRef} 
-      className="relative h-full w-full touch-none overscroll-none"
+      className="relative h-full w-full touch-none overscroll-none select-none"
       onMouseDownCapture={(e) => {
         const now = Date.now()
         // Prevent double-click zoom by stopping propagation of the second click
@@ -188,6 +198,7 @@ export function MapContainer({
       }}
     >
       <Map
+        ref={mapRef}
         width={size?.width}
         height={size?.height}
         
@@ -205,6 +216,7 @@ export function MapContainer({
         
         boxClassname="h-full w-full touch-none"
         animate={true} // Always animate since we aren't fighting React updates anymore
+        animateMaxScreens={9999} // Always animate regardless of distance
         
         onBoundsChanged={(payload) => {
           // 1. Update our tracker refs so we know where the map thinks it is
