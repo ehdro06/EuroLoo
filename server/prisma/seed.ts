@@ -134,6 +134,16 @@ async function main() {
     const isPaid = fee === 'yes' || (fee && (fee.includes('cent') || fee.includes('eur') || fee.includes('€'))) ? true : false;
     const wheelchair = tags['wheelchair'] || null;
     const isAccessible = wheelchair === 'yes' || wheelchair === 'designated';
+    
+    // New OSM tags
+    const access = tags['access'] || null;
+    const isIndoor = tags['indoor'] === 'yes';
+    const hasChangingTable = tags['changing_table'] === 'yes';
+    const hasDrinkingWater = tags['drinking_water'] === 'yes';
+    const isUnisex = tags['unisex'] === 'yes';
+    const isFemale = tags['female'] === 'yes';
+    const isMale = tags['male'] === 'yes';
+    const description = tags['description'] || tags['note'] || null;
 
     batch.push({
       externalId: `node/${id}`,
@@ -147,6 +157,14 @@ async function main() {
       openingHours: tags['opening_hours'] || null,
       wheelchair,
       isAccessible,
+      access,
+      isIndoor,
+      hasChangingTable,
+      hasDrinkingWater,
+      isUnisex,
+      isFemale,
+      isMale,
+      description,
       // Default Trust for OSM data
       isVerified: true,
       verifyCount: 3, 

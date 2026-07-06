@@ -22,6 +22,16 @@ model Toilet {
   isAccessible Boolean  @default(false) // Derived from wheelchair tag usually
   isUserCreated Boolean @default(false)
 
+  // New OSM properties
+  access           String?
+  isIndoor         Boolean  @default(false)
+  hasChangingTable Boolean  @default(false)
+  hasDrinkingWater Boolean  @default(false)
+  isUnisex         Boolean  @default(false)
+  isFemale         Boolean  @default(false)
+  isMale           Boolean  @default(false)
+  description      String?
+
   // specific PostGIS geography column
   location     Unsupported("geometry(Point, 4326)")?
 
