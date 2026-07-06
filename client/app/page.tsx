@@ -19,10 +19,13 @@ export default function HomePage() {
 
   // New State for Location/Adding
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
+  const [userHeading, setUserHeading] = useState<number | null>(null)
   const [isAddingToilet, setIsAddingToilet] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newToiletLocation, setNewToiletLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isLocating, setIsLocating] = useState(false)
+  const [followMe, setFollowMe] = useState(false)
+  const followMeRef = useRef(followMe)
   
   // Controlled map center vs debounced query center
   // `mapCenter` updates immediately so the map can preserve the user's
@@ -46,17 +49,27 @@ export default function HomePage() {
 
   // Initial Geolocation
   useEffect(() => {
+    let watchId: number | null = null;
     if (typeof navigator !== 'undefined' && navigator.geolocation) {
-       navigator.geolocation.getCurrentPosition(
+       watchId = navigator.geolocation.watchPosition(
          (pos) => {
            const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
            setUserLocation(coords)
-           setMapCenter(coords)
-           setQueryCenter(coords)
+           setUserHeading(pos.coords.heading)
+           
+           if (followMeRef.current) {
+             setMapCenter(coords)
+             setQueryCenter(coords)
+           }
          },
          () => console.log("Location access denied or failed"),
-         { enableHighAccuracy: true }
+         { enableHighAccuracy: true, maximumAge: 0 }
        )
+    }
+    return () => {
+      if (watchId !== null && navigator.geolocation) {
+        navigator.geolocation.clearWatch(watchId)
+      }
     }
   }, []) // Run once on mount
 
@@ -66,21 +79,36 @@ export default function HomePage() {
          return
     }
 
-    setIsLocating(true)
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        setIsLocating(false)
-        const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
-        setUserLocation(coords)
-        setMapCenter(coords)
-        setZoom(16) // Zoom in when locating
-      },
-      (err) => {
-         setIsLocating(false)
-         toast.error("Location Error", { description: "Could not retrieve location. Please check permissions." })
-      },
-      { enableHighAccuracy: true }
-    )
+    // Toggle follow me mode
+    const newState = !followMe;
+    setFollowMe(newState);
+    followMeRef.current = newState;
+    
+    if (newState) {
+      if (userLocation) {
+        setMapCenter(userLocation);
+        setZoom(16);
+      } else {
+        setIsLocating(true)
+        navigator.geolocation.getCurrentPosition(
+          (pos) => {
+            setIsLocating(false)
+            const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
+            setUserLocation(coords)
+            setUserHeading(pos.coords.heading)
+            setMapCenter(coords)
+            setZoom(16) // Zoom in when locating
+          },
+          (err) => {
+             setIsLocating(false)
+             setFollowMe(false)
+             followMeRef.current = false
+             toast.error("Location Error", { description: "Could not retrieve location. Please check permissions." })
+          },
+          { enableHighAccuracy: true }
+        )
+      }
+    }
   }
 
   const handleBoundsChange = (payload: { center: [number, number]; zoom?: number }) => {
@@ -88,6 +116,22 @@ export default function HomePage() {
     if (typeof payload.zoom === "number") {
       setZoom(payload.zoom)
       pendingZoomRef.current = payload.zoom
+    }
+
+    // Disable follow-me if user manually panned
+    const [lat1, lon1] = lastQueryCenterRef.current
+    const [lat2, lon2] = payload.center
+    const mapMoveDist = Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2))
+    // Only turn off follow me if the map was moved significantly, not just a jitter
+    if (followMeRef.current && mapMoveDist > 0.0001) {
+       // Also verify it's not because we programmatically set it to userLocation
+       if (userLocation) {
+         const distToUser = Math.sqrt(Math.pow(lat2 - userLocation[0], 2) + Math.pow(lon2 - userLocation[1], 2))
+         if (distToUser > 0.0001) {
+            setFollowMe(false);
+            followMeRef.current = false;
+         }
+       }
     }
 
     // Update the map center immediately so the map's visual state (and the
@@ -184,11 +228,11 @@ export default function HomePage() {
                 <span className="hidden sm:inline">{isAddingToilet ? "Cancel" : "Add Missing"}</span>
             </Button>
             <Button
-              variant="outline"
+              variant={followMe ? "default" : "outline"}
               size="sm"
               onClick={handleUserLocationRequest}
               className="gap-2"
-              aria-label="Use my current location"
+              aria-label="Follow my location"
               disabled={isLocating}
             >
               {isLocating ? (
@@ -196,7 +240,7 @@ export default function HomePage() {
               ) : (
                  <LocateFixed className="h-4 w-4" aria-hidden="true" />
               )}
-              <span className="hidden sm:inline">{isLocating ? "Locating..." : "Use My Location"}</span>
+              <span className="hidden sm:inline">{isLocating ? "Locating..." : followMe ? "Following" : "Follow Me"}</span>
             </Button>
             <Button
               variant={showFreeOnly ? "default" : "outline"}
@@ -245,6 +289,8 @@ export default function HomePage() {
           onBoundsChange={handleBoundsChange}
           onZoomChange={(z) => setZoom(z)}
           userLocation={userLocation}
+          userHeading={userHeading}
+          followMe={followMe}
           isSelectingLocation={isAddingToilet}
           onUserLocationRequest={handleUserLocationRequest}
           isLocating={isLocating}

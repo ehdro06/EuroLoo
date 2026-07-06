@@ -14,6 +14,8 @@ interface MapContainerProps {
   zoom?: number
   onZoomChange?: (zoom: number) => void
   userLocation?: [number, number] | null
+  userHeading?: number | null
+  followMe?: boolean
   isSelectingLocation?: boolean
   onLocationSelect?: (latLng: [number, number]) => void
   onUserLocationRequest?: () => void
@@ -29,6 +31,8 @@ export function MapContainer({
   zoom, 
   onZoomChange, 
   userLocation,
+  userHeading,
+  followMe,
   isSelectingLocation,
   onLocationSelect,
   onUserLocationRequest,
@@ -261,6 +265,15 @@ export function MapContainer({
                  <div className="relative flex h-5 w-5 items-center justify-center">
                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
                      <span className="relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-sky-500 shadow-md"></span>
+                     {userHeading != null && (
+                        <div 
+                           className="absolute -top-[2px] w-0 h-0 border-l-[3px] border-r-[3px] border-b-[6px] border-l-transparent border-r-transparent border-b-sky-700" 
+                           style={{ 
+                             transform: `rotate(${userHeading}deg)`,
+                             transformOrigin: '50% 12px'
+                           }}
+                        />
+                     )}
                  </div>
              </Overlay>
         )}
@@ -273,10 +286,10 @@ export function MapContainer({
       {/* Zoom control: bottom-right vertical scrollbar with +/- buttons and draggable thumb */}
       <div className="absolute bottom-6 right-4 z-[1100] flex origin-bottom-right scale-75 flex-col items-center gap-2 sm:bottom-4 sm:scale-100">
         <button
-           aria-label="My Location"
+           aria-label={followMe ? "Following" : "Follow Me"}
            onClick={onUserLocationRequest}
            disabled={isLocating}
-           className="flex h-9 w-9 mb-2 items-center justify-center rounded-md border border-black/10 bg-white/95 text-lg font-medium shadow-sm text-black"
+           className={`flex h-9 w-9 mb-2 items-center justify-center rounded-md border border-black/10 text-lg font-medium shadow-sm ${followMe ? "bg-sky-500 text-white" : "bg-white/95 text-black"}`}
         >
             {isLocating ? <Loader2 className="h-5 w-5 animate-spin" /> : <Locate className="h-5 w-5" />}
         </button>
