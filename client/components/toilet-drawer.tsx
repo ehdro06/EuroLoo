@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"
 import { useUser, useClerk } from "@clerk/nextjs"
+import { ImageGallery } from "./image-gallery"
 
 interface ToiletDrawerProps {
   toilet: Toilet | null
@@ -238,6 +239,11 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
               </div>
             </div>
           </div>
+
+          <Separator className="my-6" />
+
+          {/* Image Gallery */}
+          <ImageGallery toiletId={toilet.id} />
 
           <Separator className="my-6" />
 

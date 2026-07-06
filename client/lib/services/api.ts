@@ -34,6 +34,13 @@ export interface Author {
     clerkId: string;
 }
 
+export interface ImageRecord {
+  id: number;
+  url: string;
+  createdAt: string;
+  user?: { username: string | null };
+}
+
 export interface Review {
   id: number;
   content: string;
@@ -76,7 +83,7 @@ export const api = createApi({
       return headers;
     },
   }),
-  tagTypes: ['Reviews', 'Toilets', 'HiddenToilets', 'Users'],
+  tagTypes: ['Reviews', 'Toilets', 'HiddenToilets', 'Users', 'Images'],
   endpoints: (builder) => ({
     getToilets: builder.query<Toilet[], { lat: number; lng: number; radius?: number }>({
       query: ({ lat, lng, radius }) => ({
@@ -122,6 +129,27 @@ export const api = createApi({
         body,
       }),
       invalidatesTags: ['Toilets'],
+    }),
+    
+    // --- Images ---
+    getToiletImages: builder.query<ImageRecord[], number>({
+      query: (toiletId) => `/api/toilets/${toiletId}/images`,
+      providesTags: (result, error, toiletId) => [{ type: 'Images', id: toiletId }],
+    }),
+    getPresignedUrl: builder.mutation<{ uploadUrl: string; fileUrl: string }, { contentType: string; extension: string }>({
+      query: (body) => ({
+        url: '/images/presigned-url',
+        method: 'POST',
+        body,
+      }),
+    }),
+    confirmImageUpload: builder.mutation<ImageRecord, { toiletId: number; fileUrl: string }>({
+      query: (body) => ({
+        url: '/images/confirm',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: (result, error, { toiletId }) => [{ type: 'Images', id: toiletId }],
     }),
     
     // --- Admin Endpoints ---
@@ -170,5 +198,8 @@ export const {
     useRestoreToiletMutation,
     useDeleteToiletMutation,
     useGetAllUsersQuery,
-    useUpdateUserRoleMutation
+    useUpdateUserRoleMutation,
+    useGetToiletImagesQuery,
+    useGetPresignedUrlMutation,
+    useConfirmImageUploadMutation
 } = api;

@@ -129,6 +129,13 @@ export class ToiletsController {
     return data;
   }
 
+  @Get('toilets/:id/images')
+  async getToiletImages(@Param('id') id: string) {
+    const toiletId = parseInt(id, 10);
+    if (isNaN(toiletId)) throw new BadRequestException('Invalid toilet ID');
+    return this.toiletsService.findImagesByToilet(toiletId);
+  }
+
   @Get('debug/cache')
   @UseGuards(ClerkAuthGuard, RolesGuard)
   @Roles('ADMIN')

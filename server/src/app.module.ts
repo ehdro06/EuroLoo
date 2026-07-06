@@ -7,6 +7,7 @@ import { PrismaModule } from './prisma/prisma.module.js';
 import { WebhooksModule } from './webhooks/webhooks.module.js';
 import { TestModule } from './test/test.module.js';
 import { UsersModule } from './users/users.module.js';
+import { ImagesModule } from './images/images.module.js';
 import { CacheModule } from '@nestjs/cache-manager';
 import { SimpleRateLimitGuard } from './common/guards/simple-rate-limit.guard.js';
 
@@ -27,6 +28,7 @@ import { SimpleRateLimitGuard } from './common/guards/simple-rate-limit.guard.js
     UsersModule,
     WebhooksModule,
     TestModule,
+    ImagesModule,
 
   ],
   controllers: [AppController],

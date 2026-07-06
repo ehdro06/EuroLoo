@@ -44,6 +44,7 @@ model Toilet {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt // Track when we last synced or updated
   reviews      Review[]
+  images       Image[]
   
   // User Identity
   contributorId Int?
@@ -82,6 +83,7 @@ model User {
   reviews      Review[]
   createdToilets Toilet[]
   votes        Vote[]
+  images       Image[]
 }
 
 model Vote {
@@ -94,4 +96,14 @@ model Vote {
   createdAt DateTime @default(now())
 
   @@unique([userId, toiletId, type])
+}
+
+model Image {
+  id        Int      @id @default(autoincrement())
+  url       String
+  toiletId  Int
+  toilet    Toilet   @relation(fields: [toiletId], references: [id], onDelete: Cascade)
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
 }

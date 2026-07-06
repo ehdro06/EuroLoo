@@ -207,6 +207,16 @@ export class ToiletsService {
     return toilet;
   }
 
+  // --- Images ---
+  
+  async findImagesByToilet(toiletId: number) {
+    return this.prisma.image.findMany({
+      where: { toiletId },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true, url: true, createdAt: true, user: { select: { username: true } } }
+    });
+  }
+
   // --- Admin Methods ---
 
   async findHidden() {
