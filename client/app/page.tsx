@@ -47,6 +47,9 @@ export default function HomePage() {
   const DEBOUNCE_MS = 500
   const MOVE_THRESHOLD = 0.002 // Approx 200m
 
+  // Device orientation state
+  const [orientationGranted, setOrientationGranted] = useState(false)
+
   // Initial Geolocation
   useEffect(() => {
     let watchId: number | null = null;
@@ -55,15 +58,18 @@ export default function HomePage() {
          (pos) => {
            const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
            setUserLocation(coords)
-           setUserHeading(pos.coords.heading)
+           // Only use GPS heading if we don't have compass orientation
+           if (!orientationGranted && pos.coords.heading !== null && !Number.isNaN(pos.coords.heading)) {
+             setUserHeading(pos.coords.heading)
+           }
            
            if (followMeRef.current) {
              setMapCenter(coords)
              setQueryCenter(coords)
            }
          },
-         () => console.log("Location access denied or failed"),
-         { enableHighAccuracy: true, maximumAge: 0 }
+         (err) => console.log("Location access denied or failed", err),
+         { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
        )
     }
     return () => {
@@ -71,12 +77,57 @@ export default function HomePage() {
         navigator.geolocation.clearWatch(watchId)
       }
     }
-  }, []) // Run once on mount
+  }, [orientationGranted]) 
 
-  const handleUserLocationRequest = () => {
+  // Compass orientation listener
+  useEffect(() => {
+    if (!orientationGranted) return;
+
+    const handleOrientation = (event: any) => {
+      let heading = null;
+      if (event.webkitCompassHeading) {
+        // iOS
+        heading = event.webkitCompassHeading;
+      } else if (event.alpha !== null) {
+        // Android absolute orientation
+        // alpha is 0 when top of device is pointing South? Actually it varies. 
+        // We'll approximate for Android if 'deviceorientationabsolute' is used.
+        // Standard deviceorientation alpha is relative.
+        heading = 360 - event.alpha;
+      }
+      
+      if (heading !== null) {
+        setUserHeading(heading);
+      }
+    };
+
+    const eventName = 'ondeviceorientationabsolute' in window ? 'deviceorientationabsolute' : 'deviceorientation';
+    window.addEventListener(eventName, handleOrientation);
+    
+    return () => {
+      window.removeEventListener(eventName, handleOrientation);
+    };
+  }, [orientationGranted])
+
+  const handleUserLocationRequest = async () => {
     if (!navigator.geolocation) {
          toast.error("Error", { description: "Geolocation not supported" })
          return
+    }
+
+    // Request compass permission on iOS
+    if (typeof (window as any).DeviceOrientationEvent !== 'undefined' && typeof (window as any).DeviceOrientationEvent.requestPermission === 'function') {
+      try {
+        const permission = await (window as any).DeviceOrientationEvent.requestPermission()
+        if (permission === 'granted') {
+          setOrientationGranted(true)
+        }
+      } catch (err) {
+        console.error("Compass permission error:", err)
+      }
+    } else {
+      // Android or non-iOS 13+ devices
+      setOrientationGranted(true)
     }
 
     // Toggle follow me mode
@@ -95,7 +146,9 @@ export default function HomePage() {
             setIsLocating(false)
             const coords: [number, number] = [pos.coords.latitude, pos.coords.longitude]
             setUserLocation(coords)
-            setUserHeading(pos.coords.heading)
+            if (!orientationGranted && pos.coords.heading !== null && !Number.isNaN(pos.coords.heading)) {
+              setUserHeading(pos.coords.heading)
+            }
             setMapCenter(coords)
             setZoom(16) // Zoom in when locating
           },
@@ -105,7 +158,7 @@ export default function HomePage() {
              followMeRef.current = false
              toast.error("Location Error", { description: "Could not retrieve location. Please check permissions." })
           },
-          { enableHighAccuracy: true }
+          { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
         )
       }
     }
