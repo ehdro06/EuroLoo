@@ -2,6 +2,11 @@ import { execSync, spawnSync } from 'child_process';
 import * as fs from 'fs';
 import * as path from 'path';
 
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 // Resolve paths relative to the project root
 const projectRoot = path.resolve(__dirname, '../../');
 const pbfFileName = 'europe-latest.osm.pbf';
@@ -40,6 +45,7 @@ function runOsmiumCommand(args: string[], description: string) {
     'run', '--rm', 
     '-v', `${projectRoot}:/data`, 
     dockerImage, 
+    'osmium',
     ...args
   ];
   
