@@ -32,13 +32,13 @@ export class ReviewsController {
   }
 
   @Patch(':id')
-  @UseGuards(SimpleRateLimitGuard)
+  @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
   update(@Param('id') id: string, @Body() updateReviewDto: UpdateReviewDto) {
     return this.reviewsService.update(+id, updateReviewDto);
   }
 
   @Delete(':id')
-  @UseGuards(SimpleRateLimitGuard)
+  @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
   remove(@Param('id') id: string) {
     return this.reviewsService.remove(+id);
   }
