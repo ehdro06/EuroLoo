@@ -261,7 +261,7 @@ export function MapContainer({
           />
         ))}
         {userLocation && (
-             <Overlay anchor={userLocation} offset={[10, 10]} className="pointer-events-none">
+             <Overlay anchor={userLocation} offset={[10, 10]} className="pointer-events-none transition-transform duration-1000 ease-linear">
                  <div className="relative flex h-5 w-5 items-center justify-center">
                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-sky-400 opacity-75"></span>
                      <span className="relative inline-flex h-4 w-4 rounded-full border-2 border-white bg-sky-500 shadow-md"></span>
