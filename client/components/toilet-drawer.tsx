@@ -1,17 +1,26 @@
 "use client"
 
-import { MapPin, Euro, Clock, Accessibility, X, MessageSquarePlus, Star, User, AlertTriangle, CheckCircle } from "lucide-react"
+import { MapPin, Euro, Clock, Accessibility, X, MessageSquarePlus, Star, AlertTriangle, CheckCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { Toilet } from "@/hooks/use-overpass"
+import type { Toilet } from "@/hooks/use-toilets"
 import { AddReviewForm } from "./add-review-form"
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Separator } from "@/components/ui/separator"
 import { useGetReviewsByToiletQuery, useReportToiletMutation, useVerifyToiletMutation } from "@/lib/services/api"
-import { Avatar, AvatarFallback } from "@/components/ui/avatar"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { toast } from "sonner"
 import { useUser, useClerk } from "@clerk/nextjs"
 import { ImageGallery } from "./image-gallery"
+import { getErrorMessage } from "@/lib/errors"
+
+const VOTED_STORAGE_KEY = "votedToilets"
+
+function readVotedToilets(): number[] {
+  try {
+    return JSON.parse(localStorage.getItem(VOTED_STORAGE_KEY) || "[]")
+  } catch {
+    return []
+  }
+}
 
 interface ToiletDrawerProps {
   toilet: Toilet | null
@@ -39,21 +48,19 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
   const [verifyToilet, { isLoading: isVerifying }] = useVerifyToiletMutation()
   const [reportToilet, { isLoading: isReporting }] = useReportToiletMutation()
 
-  // Sync state with props when parent updates
-  useEffect(() => {
-    if (toilet) {
-      setIsVerified(toilet.isVerified || false);
-      
-      const votedToilets = JSON.parse(localStorage.getItem('votedToilets') || '[]')
-      setHasVotedLocally(votedToilets.includes(toilet.id))
-    }
-  }, [toilet])
+  // Reset local state when a different toilet is selected
+  const [syncedToilet, setSyncedToilet] = useState<Toilet | null>(null)
+  if (toilet && toilet !== syncedToilet) {
+    setSyncedToilet(toilet)
+    setIsVerified(toilet.isVerified || false)
+    setHasVotedLocally(readVotedToilets().includes(toilet.id))
+  }
 
   const markAsVoted = (id: number) => {
     setHasVotedLocally(true)
-    const votedToilets = JSON.parse(localStorage.getItem('votedToilets') || '[]')
+    const votedToilets = readVotedToilets()
     if (!votedToilets.includes(id)) {
-      localStorage.setItem('votedToilets', JSON.stringify([...votedToilets, id]))
+      localStorage.setItem(VOTED_STORAGE_KEY, JSON.stringify([...votedToilets, id]))
     }
   }
 
@@ -72,17 +79,17 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
     try {
       // 2. Send Request
       await verifyToilet(toilet.id).unwrap()
+      markAsVoted(toilet.id)
       toast.success("Thanks for verifying!")
       
       // 3. Check badge status
       // We rely on the cache invalidation to re-fetch the toilet data globally
       // but for immediate feedback we assume success
       setIsVerified(true) // Optimistic
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to verify toilet", err)
       setHasVotedLocally(false) // Re-enable buttons
-      const msg = err.data?.message || err.message || "Failed to verify"
-      toast.error(msg)
+      toast.error(getErrorMessage(err, "Failed to verify"))
     }
   }
 
@@ -99,12 +106,12 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
 
     try {
       await reportToilet(toilet.id).unwrap()
+      markAsVoted(toilet.id)
       toast.success("Report submitted. Thanks!")
-    } catch (err: any) {
+    } catch (err) {
       console.error("Failed to report", err)
       setHasVotedLocally(false)
-      const msg = err.data?.message || err.message || "Failed to report"
-      toast.error(msg)
+      toast.error(getErrorMessage(err, "Failed to report"))
     }
   }
 
@@ -174,7 +181,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
                   className="text-red-600 hover:bg-red-50 hover:text-red-700 border-red-200"
                 >
                   <AlertTriangle className="mr-2 h-4 w-4" />
-                  No, it's missing
+                  No, it&apos;s missing
                 </Button>
               </div>
               <p className="mt-2 text-xs text-slate-500">

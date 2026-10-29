@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useGetToiletsQuery } from "@/lib/services/api"
 import type { Toilet } from "@/lib/services/api" // Re-export or import from api
 export type { Toilet } // Re-export for consumers
@@ -23,19 +23,19 @@ function calculateRadiusMeters(lat: number, zoom: number) {
 }
 
 function getDistanceFromLatLonInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  var R = 6371000; // Radius of the earth in m
-  var dLat = (lat2 - lat1) * Math.PI / 180;
-  var dLon = (lon2 - lon1) * Math.PI / 180;
-  var a =
+  const R = 6371000; // Radius of the earth in m
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
     Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  var d = R * c; // Distance in m
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const d = R * c; // Distance in m
   return d;
 }
 
-export function useOverpass(
+export function useToilets(
   center: [number, number] = [DEFAULT_CENTER.lat, DEFAULT_CENTER.lon],
   zoom: number = 13
 ) {
@@ -56,7 +56,9 @@ export function useOverpass(
   // This allows us to "zoom in" without hitting the API again.
   const [queryArgs, setQueryArgs] = useState({ lat, lng, radius: fetchRadius })
 
-  useEffect(() => {
+  // Adjust the fetched area during render (instead of in an effect) so the
+  // query args update in the same render pass.
+  {
     // 1. Calculate distance from current request center to the cached center
     const dist = getDistanceFromLatLonInMeters(lat, lng, queryArgs.lat, queryArgs.lng)
     
@@ -73,16 +75,16 @@ export function useOverpass(
       // Prevent infinite loop: if the inputs haven't changed but isContained is false 
       // (e.g. because we are in a skipped state > MAX_RADIUS), don't update state.
       // Use fetchRadius here since that is what we are trying to set
-      if (queryArgs.lat === lat && queryArgs.lng === lng && queryArgs.radius === fetchRadius) {
-        return
+      const unchanged = queryArgs.lat === lat && queryArgs.lng === lng && queryArgs.radius === fetchRadius
+      if (!unchanged) {
+        setQueryArgs({ lat, lng, radius: fetchRadius })
       }
-      setQueryArgs({ lat, lng, radius: fetchRadius })
     }
-  }, [lat, lng, radius, queryArgs, fetchRadius])
+  }
 
   const skip = queryArgs.radius > MAX_RADIUS_METERS
 
-  const { data: toilets = [], isLoading, isError, error: queryError } = useGetToiletsQuery(
+  const { data: toilets = [], isLoading, isError } = useGetToiletsQuery(
     queryArgs,
     { 
        skip,

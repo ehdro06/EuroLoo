@@ -8,9 +8,10 @@ import { ClerkProviderWrapper } from "@/components/clerk-provider-wrapper"
 import { GlobalLoading } from "@/components/global-loading"
 import "./globals.css"
 
-const _geist = Geist({ subsets: ["latin"] })
+const geist = Geist({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://euroloo.app"),
   title: "EuroLoo - Privacy-First Public Toilet Finder",
   description: "Find public toilets across Europe. Privacy-friendly, no tracking, powered by open data.",
   manifest: "/manifest.json",
@@ -44,7 +45,7 @@ export default function RootLayout({
   return (
     <ClerkProviderWrapper>
       <html lang="en">
-        <body className="font-sans antialiased">
+        <body className={`${geist.className} antialiased`}>
           <StoreProvider>
             {children}
             <Analytics />

@@ -50,19 +50,28 @@ export interface Review {
   author?: Author;
 }
 
+export interface AddToiletRequest {
+  lat: number;
+  lng: number;
+  userLat: number;
+  userLng: number;
+  name?: string;
+  operator?: string;
+  fee?: string;
+  isFree?: boolean;
+  isPaid?: boolean;
+  openingHours?: string;
+  wheelchair?: string;
+  isAccessible?: boolean;
+}
+
+// Clerk exposes the active session on `window.Clerk` once loaded.
+type ClerkWindow = Window & { Clerk?: { session?: { getToken: () => Promise<string | null> } | null } };
+
 interface AddReviewRequest {
   externalId: string;
   content: string;
   rating: number;
-  // Extras based on UI requirements that might need to go into content or structured data
-  // The server DTO only accepts content and rating and externalId.
-  // We'll pack the extras into the content for now, or assume the server needs update.
-  // Wait, the user asked for: Cleanliness, Price (Fee), Comment.
-  // The server DTO has: content, rating.
-  // I will concatenate the extra fields into the content string for MVP as "Review: ... | Cleanliness: ... | Price: ...".
-  // OR just start with what the server supports. The prompt says "UI Requirements".
-  // I should probably conform to the server API or extend it.
-  // Since I am only editing the client now, I will format the 'content' field to include the extra data.
 }
 
 export const api = createApi({
@@ -70,9 +79,10 @@ export const api = createApi({
   baseQuery: fetchBaseQuery({
     baseUrl: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000',
     prepareHeaders: async (headers) => {
-      if (typeof window !== 'undefined' && (window as any).Clerk?.session) {
+      const session = typeof window !== 'undefined' ? (window as ClerkWindow).Clerk?.session : undefined;
+      if (session) {
         try {
-          const token = await (window as any).Clerk.session.getToken();
+          const token = await session.getToken();
           if (token) {
             headers.set('Authorization', `Bearer ${token}`);
           }
@@ -122,7 +132,7 @@ export const api = createApi({
       }),
       invalidatesTags: ['Toilets'],
     }),
-    addToilet: builder.mutation<Toilet, any>({
+    addToilet: builder.mutation<Toilet, AddToiletRequest>({
       query: (body) => ({
         url: '/api/toilets',
         method: 'POST',

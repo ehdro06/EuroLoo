@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState, useLayoutEffect } from "react"
 import { Map, Marker, Overlay } from "pigeon-maps"
 import { Locate, Loader2 } from "lucide-react"
-import type { Toilet } from "@/hooks/use-overpass"
+import type { Toilet } from "@/hooks/use-toilets"
 
 interface MapContainerProps {
   toilets: Toilet[]
@@ -49,7 +49,7 @@ export function MapContainer({
   const center = propCenter ?? computedCenter
 
   const containerRef = useRef<HTMLDivElement | null>(null)
-  const mapRef = useRef<any>(null)
+  const mapRef = useRef<Map | null>(null)
   const [size, setSize] = useState<{ width: number; height: number } | null>(null)
   const sizeRef = useRef<{ width: number; height: number } | null>(null)
   const trackRef = useRef<HTMLDivElement | null>(null)
@@ -113,17 +113,12 @@ export function MapContainer({
   }, [zoom])
 
   useEffect(() => {
-    let timer: ReturnType<typeof window.setTimeout> | undefined
-    if (loading) {
-      // Only show loading indicator if fetching takes longer than 1s
-      timer = setTimeout(() => {
-        setShowLoading(true)
-      }, 1000)
-    } else {
-      setShowLoading(false)
-    }
+    if (!loading) return
+    // Only show loading indicator if fetching takes longer than 1s
+    const timer = setTimeout(() => setShowLoading(true), 1000)
     return () => {
-      if (timer) window.clearTimeout(timer)
+      clearTimeout(timer)
+      setShowLoading(false)
     }
   }, [loading])
 
@@ -346,7 +341,7 @@ export function MapContainer({
                 onZoomChange?.(next)
               }
 
-              const onUp = (ev: PointerEvent) => {
+              const onUp = () => {
                  draggingRef.current = false
                  setTransientZoom(undefined) // Release on drop
                 window.removeEventListener("pointermove", onMove)

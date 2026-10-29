@@ -1,37 +1,40 @@
 'use client';
 
-import { useAppSelector } from '@/lib/store';
+import { useAppSelector, type RootState } from '@/lib/store';
 import { api } from '@/lib/services/api';
 import { Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
+type RequestState = { status?: string } | undefined;
+
+const selectHasPending = (state: RootState) => {
+  const apiState = state[api.reducerPath];
+  const isPending = (entry: RequestState) => entry?.status === 'pending';
+  return (
+    Object.values(apiState.queries).some(isPending) ||
+    Object.values(apiState.mutations).some(isPending)
+  );
+};
+
 export function GlobalLoading() {
-  const [isLoading, setIsLoading] = useState(false);
-  
-  // RTK Query keeps track of all queries in the state.
-  // We can check if any query is in 'pending' state.
-  const apiState = useAppSelector((state) => (state as any)[api.reducerPath]);
-  
+  // RTK Query keeps track of all queries/mutations in the store.
+  const hasPending = useAppSelector(selectHasPending);
+
+  // Keep the indicator visible briefly after requests finish to avoid flickering.
+  const [prevHasPending, setPrevHasPending] = useState(hasPending);
+  const [lingering, setLingering] = useState(false);
+  if (prevHasPending !== hasPending) {
+    setPrevHasPending(hasPending);
+    if (!hasPending) setLingering(true);
+  }
+
   useEffect(() => {
-    // Check pending queries or mutations
-    const hasPending = Object.values(apiState?.queries || {}).some(
-        (query: any) => query?.status === 'pending'
-    ) || Object.values(apiState?.mutations || {}).some(
-        (mutation: any) => mutation?.status === 'pending'
-    );
-     
-    // Small debounce to avoid flickering for fast requests
-    let timeout: NodeJS.Timeout;
-    if (hasPending) {
-         setIsLoading(true);
-    } else {
-         timeout = setTimeout(() => setIsLoading(false), 300);
-    }
-
+    if (!lingering) return;
+    const timeout = setTimeout(() => setLingering(false), 300);
     return () => clearTimeout(timeout);
-  }, [apiState]);
+  }, [lingering]);
 
-  if (!isLoading) return null;
+  if (!hasPending && !lingering) return null;
 
   return (
     <div className="fixed top-4 right-4 z-[9999] bg-white/90 backdrop-blur-sm border border-black/10 rounded-full px-3 py-1.5 shadow-lg flex items-center gap-2 animate-in fade-in zoom-in duration-200">
