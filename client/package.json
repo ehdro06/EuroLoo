@@ -2,12 +2,14 @@
   "name": "euroloo-client",
   "version": "0.1.0",
   "private": true,
+  "packageManager": "pnpm@10.28.2",
   "scripts": {
     "build": "next build",
     "dev": "next dev -H 0.0.0.0",
     "lint": "eslint .",
     "test": "jest",
-    "start": "next start"
+    "start": "next start",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.37.3",
