@@ -1,64 +1,85 @@
-name: EuroLoo CI Pipeline
+name: CI
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
 jobs:
-  validate-code:
-    name: Lint and Build
+  server:
+    name: Server (NestJS)
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ./server
+
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: euroloo
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/euroloo
 
     steps:
-      # 1. Download the code
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 2. Install pnpm
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v3
+      - uses: pnpm/action-setup@v4
         with:
-          version: 8
+          package_json_file: server/package.json
 
-      # 3. Setup Node.js (Using v20 as the current LTS standard for Next.js/NestJS)
-      - name: Setup Node.js 20
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'pnpm'
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
 
-      # --- BACKEND (NESTJS) CHECKS ---
-      - name: Install Server Dependencies
-        working-directory: ./server
-        run: pnpm install --frozen-lockfile # Ensures exact versions from lockfile are used
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm prisma:generate
+      - run: pnpm lint
+      - run: pnpm typecheck
+      - run: pnpm test
+      # Applies every migration to a fresh PostGIS database
+      - run: pnpm prisma:migrate
+      - run: pnpm run build
 
-      - name: Lint Server
-        working-directory: ./server
-        run: pnpm run lint
-
-      - name: Test Server
-        working-directory: ./server
-        run: pnpm run test
-
-      - name: Build Server
-        working-directory: ./server
-        run: pnpm run build
-
-      # --- FRONTEND (NEXT.JS) CHECKS ---
-      - name: Install Client Dependencies
+  client:
+    name: Client (Next.js)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
         working-directory: ./client
-        run: pnpm install --frozen-lockfile
 
-      - name: Lint Client
-        working-directory: ./client
-        run: pnpm run lint
+    env:
+      NEXT_PUBLIC_API_URL: http://localhost:4000
+      # Placeholder publishable key (base64 of "example.clerk.accounts.dev$") so the build can prerender
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ZXhhbXBsZS5jbGVyay5hY2NvdW50cy5kZXYk
 
-      - name: Test Client
-        working-directory: ./client
-        run: pnpm run test
+    steps:
+      - uses: actions/checkout@v4
 
-      - name: Build Client
-        working-directory: ./client
-        run: pnpm run build
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: client/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: client/pnpm-lock.yaml
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm lint
+      - run: pnpm test
+      - run: pnpm run build

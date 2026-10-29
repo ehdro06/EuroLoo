@@ -5,11 +5,15 @@ import { Filter, ShieldCheck, Plus, LocateFixed, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
-import { useOverpass, type Toilet } from "@/hooks/use-overpass"
+import { useToilets, type Toilet } from "@/hooks/use-toilets"
 import { AddToiletDialog } from "@/components/add-toilet-dialog"
 import { toast } from "sonner"
 import { SignedIn, SignedOut, SignInButton, UserButton, useClerk, useUser } from "@clerk/nextjs";
 import Image from "next/image"
+
+// iOS Safari exposes the compass heading and a permission prompt on orientation events.
+type CompassOrientationEvent = DeviceOrientationEvent & { webkitCompassHeading?: number }
+type IOSDeviceOrientationEvent = { requestPermission?: () => Promise<'granted' | 'denied'> }
 
 export default function HomePage() {
   const { openSignIn } = useClerk();
@@ -30,14 +34,14 @@ export default function HomePage() {
   // Controlled map center vs debounced query center
   // `mapCenter` updates immediately so the map can preserve the user's
   // interaction (pointer zoom/pan) without snapping. `queryCenter` is
-  // debounced and used for the Overpass request to avoid spamming the API.
+  // debounced and used for the toilets API request to avoid spamming the API.
   const [mapCenter, setMapCenter] = useState<[number, number]>([52.52, 13.405])
   const [queryCenter, setQueryCenter] = useState<[number, number]>(mapCenter)
   const [zoom, setZoom] = useState<number>(13)
-  // We need to pass the zoom level to useOverpass so it can calculate the correct bounding box size
+  // We need to pass the zoom level to useToilets so it can calculate the correct bounding box size
   // We use a queryZoom for fetching to avoid excessive API calls while zooming (similar to queryCenter)
   const [queryZoom, setQueryZoom] = useState<number>(13)
-  const { toilets, loading, error } = useOverpass(queryCenter, queryZoom)
+  const { toilets, loading, error } = useToilets(queryCenter, queryZoom)
 
   // Debounce map moves so we don't refetch continuously while panning/zooming
   const pendingCenterRef = useRef<[number, number] | null>(null)
@@ -83,8 +87,8 @@ export default function HomePage() {
   useEffect(() => {
     if (!orientationGranted) return;
 
-    const handleOrientation = (event: any) => {
-      let heading = null;
+    const handleOrientation = (event: CompassOrientationEvent) => {
+      let heading: number | null = null;
       if (event.webkitCompassHeading) {
         // iOS
         heading = event.webkitCompassHeading;
@@ -116,9 +120,10 @@ export default function HomePage() {
     }
 
     // Request compass permission on iOS
-    if (typeof (window as any).DeviceOrientationEvent !== 'undefined' && typeof (window as any).DeviceOrientationEvent.requestPermission === 'function') {
+    const OrientationEvent = (window as Window & { DeviceOrientationEvent?: IOSDeviceOrientationEvent }).DeviceOrientationEvent
+    if (typeof OrientationEvent?.requestPermission === 'function') {
       try {
-        const permission = await (window as any).DeviceOrientationEvent.requestPermission()
+        const permission = await OrientationEvent.requestPermission()
         if (permission === 'granted') {
           setOrientationGranted(true)
         }
@@ -152,7 +157,7 @@ export default function HomePage() {
             setMapCenter(coords)
             setZoom(16) // Zoom in when locating
           },
-          (err) => {
+          () => {
              setIsLocating(false)
              setFollowMe(false)
              followMeRef.current = false
@@ -192,7 +197,7 @@ export default function HomePage() {
     // the parent re-renders with an old center.
     setMapCenter(payload.center)
 
-    // Debounce the center/zoom used for querying Overpass to avoid excessive API calls
+    // Debounce the center/zoom used for querying toilets API to avoid excessive API calls
     pendingCenterRef.current = payload.center
     if (debounceTimer.current) {
       window.clearTimeout(debounceTimer.current)
@@ -387,16 +392,16 @@ export default function HomePage() {
 }
 
 function getDistanceFromLatLonInMeters(lat1: number, lon1: number, lat2: number, lon2: number) {
-  var R = 6371000; // Radius of the earth in m
-  var dLat = deg2rad(lat2-lat1);  
-  var dLon = deg2rad(lon2-lon1); 
-  var a = 
+  const R = 6371000; // Radius of the earth in m
+  const dLat = deg2rad(lat2-lat1);  
+  const dLon = deg2rad(lon2-lon1); 
+  const a = 
     Math.sin(dLat/2) * Math.sin(dLat/2) +
     Math.cos(deg2rad(lat1)) * Math.cos(deg2rad(lat2)) * 
     Math.sin(dLon/2) * Math.sin(dLon/2)
     ; 
-  var c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
-  var d = R * c; // Distance in m
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)); 
+  const d = R * c; // Distance in m
   return d;
 }
 

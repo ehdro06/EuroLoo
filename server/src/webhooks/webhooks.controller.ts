@@ -5,6 +5,16 @@ import { Webhook } from 'svix';
 import { ConfigService } from '@nestjs/config';
 import { SimpleRateLimitGuard } from '../common/guards/simple-rate-limit.guard.js';
 
+// The subset of Clerk's user webhook payload that we use
+interface ClerkUserEvent {
+  type: string;
+  data: {
+    id: string;
+    username?: string | null;
+    email_addresses?: { email_address: string }[];
+  };
+}
+
 @Controller('api/webhooks')
 export class WebhooksController {
   constructor(
@@ -39,17 +49,17 @@ export class WebhooksController {
     // NestJS rawBody returns a Buffer
     const payload = req.rawBody ? req.rawBody.toString('utf8') : JSON.stringify(req.body);
     const wh = new Webhook(WEBHOOK_SECRET);
-    let evt: any;
+    let evt: ClerkUserEvent;
 
     try {
       evt = wh.verify(payload, {
         'svix-id': svix_id,
         'svix-timestamp': svix_timestamp,
         'svix-signature': svix_signature,
-      });
+      }) as ClerkUserEvent;
     } catch (err) {
       console.error('Error verifying webhook:', err);
-      return res.status(400).json({ error: 'Error occured' });
+      return res.status(400).json({ error: 'Invalid webhook signature' });
     }
 
     // 4. Handle Events
@@ -57,7 +67,7 @@ export class WebhooksController {
     const eventType = evt.type;
     if (eventType === 'user.created' || eventType === 'user.updated') {
       const { id, email_addresses, username } = evt.data;
-      const email = email_addresses[0]?.email_address;
+      const email = email_addresses?.[0]?.email_address;
 
       // Handle email collision: if email exists on a different clerkId (e.g. from a previous dev session),
       // update that record to the new clerkId instead of failing.

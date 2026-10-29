@@ -1,28 +1,49 @@
 steps:
   # 1. Build the Node.js/Prisma container
   - name: 'gcr.io/cloud-builders/docker'
-    args: 
+    id: build
+    args:
       - 'build'
       - '-t'
       - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/euroloo-backend:$COMMIT_SHA'
       - './server'
 
-  # 2. Push the executable image to the Artifact Registry
+  # 2. Push the image to Artifact Registry
   - name: 'gcr.io/cloud-builders/docker'
-    args: 
+    id: push
+    args:
       - 'push'
       - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/euroloo-backend:$COMMIT_SHA'
 
-  # 3. Swap the active Cloud Run container with the new image
+  # 3. Apply pending database migrations before the new revision receives traffic.
+  #    Uses Neon's direct (non-pooled) connection string, since migrations need
+  #    session-level advisory locks that PgBouncer's transaction mode doesn't support.
+  - name: 'node:20'
+    id: migrate
+    dir: 'server'
+    entrypoint: 'bash'
+    args:
+      - '-c'
+      - 'corepack enable && pnpm install --frozen-lockfile && npx prisma migrate deploy'
+    secretEnv: ['DATABASE_URL']
+
+  # 4. Deploy the new image to Cloud Run
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    id: deploy
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'euroloo-git' # Your exact Cloud Run service name
+      - 'euroloo-git'
       - '--image'
       - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/euroloo-backend:$COMMIT_SHA'
       - '--region'
       - 'europe-west1'
+
+availableSecrets:
+  secretManager:
+    - versionName: 'projects/$PROJECT_ID/secrets/euroloo-migrate-database-url/versions/latest'
+      env: 'DATABASE_URL'
+
 options:
   logging: CLOUD_LOGGING_ONLY

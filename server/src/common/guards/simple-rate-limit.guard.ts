@@ -35,21 +35,15 @@ export class SimpleRateLimitGuard implements CanActivate {
   }
 
   private buildKey(request: Request): string {
-    const ip = this.getClientIp(request);
-    const method = request.method || 'UNKNOWN';
-    const route = request.originalUrl || request.url || 'unknown-route';
-    return `${ip}:${method}:${route}`;
-  }
-
-  private getClientIp(request: Request): string {
-    const forwarded = request.headers['x-forwarded-for'];
-    if (typeof forwarded === 'string' && forwarded.length > 0) {
-      return forwarded.split(',')[0]?.trim() || request.ip || 'unknown-ip';
-    }
-    if (Array.isArray(forwarded) && forwarded.length > 0) {
-      return forwarded[0] || request.ip || 'unknown-ip';
-    }
-    return request.ip || 'unknown-ip';
+    // Prefer the authenticated user (set by ClerkAuthGuard, which runs first).
+    // Otherwise fall back to the client IP. `request.ip` honours the `trust proxy`
+    // setting in main.ts, so a spoofed X-Forwarded-For header is ignored.
+    const user = (request as Request & { user?: { id?: string } }).user;
+    const client = user?.id ? `user:${user.id}` : `ip:${request.ip ?? 'unknown'}`;
+    // Use the route pattern (e.g. /api/toilets/:id/report) so changing the ID
+    // in the URL doesn't reset the limit.
+    const route = (request.route as { path?: string } | undefined)?.path ?? request.path;
+    return `${client}:${request.method}:${route}`;
   }
 
   private getRateLimitTtlMs(): number {

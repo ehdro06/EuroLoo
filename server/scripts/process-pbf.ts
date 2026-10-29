@@ -29,7 +29,7 @@ console.log(`✅ Found PBF file: ${pbfFilePath}`);
 // 2. Check if Docker is running
 try {
   execSync('docker info', { stdio: 'ignore' });
-} catch (e) {
+} catch {
   console.error(`❌ ERROR: Docker is not running or not installed.`);
   console.error(`   This script requires Docker to run the osmium-tool.`);
   process.exit(1);

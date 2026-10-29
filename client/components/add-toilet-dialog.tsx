@@ -1,8 +1,7 @@
 "use client"
 
-import { useState } from "react"
 import { useForm } from "react-hook-form"
-import { Loader2, map } from "lucide-react"
+import { Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -11,12 +10,10 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -24,9 +21,18 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
-// import { useToast } from "@/components/ui/use-toast"
 import { toast } from "sonner"
 import { useAddToiletMutation } from "@/lib/services/api"
+import { getErrorMessage } from "@/lib/errors"
+
+interface AddToiletFormValues {
+  name: string
+  operator: string
+  fee: string
+  isFree: boolean
+  isAccessible: boolean
+  openingHours: string
+}
 
 interface AddToiletDialogProps {
   open: boolean
@@ -38,9 +44,8 @@ interface AddToiletDialogProps {
 
 export function AddToiletDialog({ open, onOpenChange, location, userLocation, onSuccess }: AddToiletDialogProps) {
   const [addToilet, { isLoading }] = useAddToiletMutation()
-  // const { toast } = useToast()
   
-  const form = useForm({
+  const form = useForm<AddToiletFormValues>({
     defaultValues: {
       name: "",
       operator: "",
@@ -54,7 +59,7 @@ export function AddToiletDialog({ open, onOpenChange, location, userLocation, on
   // We need to capture location when the user submits or opens the dialog
   // Let's do it on submit to ensure freshness, or check availability first.
   
-  const onSubmit = async (data: any) => {
+  const onSubmit = async (data: AddToiletFormValues) => {
     if (!location || !userLocation) {
       toast.error("Error", {
         description: "Missing location data",
@@ -79,14 +84,9 @@ export function AddToiletDialog({ open, onOpenChange, location, userLocation, on
         onOpenChange(false)
         form.reset()
         onSuccess?.()
-    } catch (error: any) {
+    } catch (error) {
             console.error(error)
-            // Backend returns 400 with message
-            let msg = "Failed to add toilet"
-            if (error.data && error.data.message) {
-                msg = error.data.message
-            }
-            toast.error(msg)
+            toast.error(getErrorMessage(error, "Failed to add toilet"))
     }
   }
 

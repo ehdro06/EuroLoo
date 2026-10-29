@@ -1,10 +1,11 @@
-import { Controller, Get, Post, Body, Param, Req, UseGuards, ForbiddenException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Req, UseGuards } from '@nestjs/common';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { UsersService } from './users.service.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
-import { Role } from '@prisma/client';
 import { SimpleRateLimitGuard } from '../common/guards/simple-rate-limit.guard.js';
+import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
+import { UpdateRoleDto } from './dto/update-role.dto.js';
 
 @Controller('users')
 export class UsersController {
@@ -12,13 +13,9 @@ export class UsersController {
 
   @Get('me')
   @UseGuards(ClerkAuthGuard)
-  async getMe(@Req() req: any) {
-    // req.user has been populated by ClerkAuthGuard
-    // but the `role` might not be up-to-date in the token or we want 
-    // to unify how we check permissions.
-    // Fetch the DB user to get the true role.
-    const user = await this.usersService.findByClerkId(req.user.id);
-    return user;
+  async getMe(@Req() req: AuthenticatedRequest) {
+    // The role in the JWT may be stale, so the database is the source of truth
+    return this.usersService.findByClerkId(req.user.id);
   }
 
   @Get()
@@ -31,13 +28,7 @@ export class UsersController {
   @Post(':clerkId/role')
   @UseGuards(ClerkAuthGuard, RolesGuard, SimpleRateLimitGuard)
   @Roles('ADMIN')
-  async updateUserRole(
-    @Param('clerkId') clerkId: string, 
-    @Body('role') role: Role
-  ) {
-    if (!['USER', 'ADMIN'].includes(role)) {
-        throw new ForbiddenException('Invalid role');
-    }
-    return this.usersService.setRole(clerkId, role);
+  async updateUserRole(@Param('clerkId') clerkId: string, @Body() dto: UpdateRoleDto) {
+    return this.usersService.setRole(clerkId, dto.role);
   }
 }

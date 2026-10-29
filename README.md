@@ -1,5 +1,7 @@
 # EuroLoo
 
+[![CI](https://github.com/ehdro06/euroloo/actions/workflows/ci.yml/badge.svg)](https://github.com/ehdro06/euroloo/actions/workflows/ci.yml)
+
 A privacy-first, community-driven public toilet finder for Europe, built as a full-stack portfolio demo app.
 
 ## Why
@@ -14,11 +16,13 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 - **Backend (API):** [NestJS](https://nestjs.com/) on **GCP Cloud Run** — stateless, auto-scaling API
 - **Database:** PostgreSQL with **PostGIS** on **Neon** — connection pooling via `pgbouncer`
 - **Authentication:** [Clerk](https://clerk.dev/) for identity management and JWT verification
-- **CI/CD:** Google Cloud Build deploys from GitHub `main` to Cloud Run
+- **CI:** GitHub Actions (lint, type check, tests, migrations, builds)
+- **CD:** Google Cloud Build builds the image, applies Prisma migrations, then deploys to Cloud Run (`server/cloudbuild.yaml`)
 
 ### Environment and Secret Management
 
 - Secrets are configured in deployment dashboards (Vercel, GCP, Neon, Clerk).
+- The Cloud Build migration step reads Neon's direct (non-pooled) connection string from the Secret Manager secret `euroloo-migrate-database-url`.
 - No secrets should be committed to git.
 - Only template files are committed:
   - `client/.env.example`
@@ -40,10 +44,13 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 ## Production Readiness Highlights
 
 - `GET /health` is available as a lightweight liveness probe endpoint.
-- Sensitive write routes are protected with route-level rate limiting.
-- Rate-limit settings are controlled through:
-  - `RATE_LIMIT_TTL_MS` (default `60000`)
-  - `RATE_LIMIT_LIMIT` (default `60`)
+- All request bodies and query params are validated with DTOs (`class-validator`); unknown fields are rejected.
+- Write routes require a Clerk JWT; admin routes additionally check the role stored in the database.
+- Sensitive write routes are rate-limited per signed-in user (or per client IP for anonymous requests). `trust proxy` is set so a spoofed `X-Forwarded-For` header can't bypass the limit.
+  - `RATE_LIMIT_TTL_MS` (default `60000`), `RATE_LIMIT_LIMIT` (default `60`), `TRUST_PROXY_HOPS` (default `1`)
+- Photo uploads go straight to Google Cloud Storage via short-lived signed URLs. Only JPEG/PNG/WebP up to 5MB are accepted, and the API checks the stored object before saving it.
+- Database migrations run in Cloud Build before each deploy.
+- CI runs lint, type checks, unit tests, all migrations against a fresh PostGIS database, and production builds for both apps.
 
 ## Tech Stack
 
@@ -70,13 +77,13 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 - Background jobs for async enrichment and moderation
 - CI/CD promotion gates with smoke checks
 
-### Known Gaps / Next Steps
+### Known Trade-offs
 
-These are intentional scope boundaries for the current portfolio demo, not oversights:
+These are deliberate choices for the current scale:
 
-- **Review update/delete**: `PATCH/DELETE /reviews/:id` are rate-limited but still return stub responses; implement real DB operations and decide auth rules (owner-only vs admin-only).
-- **Review route auth**: add guards once ownership/policy is defined for edit and delete flows.
-- **Admin toilet restore/delete**: currently auth-protected but not rate-limited; add limits only if abuse patterns appear.
+- **In-memory cache and rate limiter**: both live in the Cloud Run instance's memory. With several instances, each keeps its own counters, and a cache clear only reaches the instance that handled the write (other instances serve results up to 1 hour old). The next step would be a shared store such as Redis (Memorystore).
+- **Whole-cache invalidation**: any write clears the entire toilet cache instead of only the affected area. Simple and correct, but wasteful at higher write volumes.
+- **Location check trusts the client**: the "within 50m" rule for adding a toilet uses coordinates reported by the browser, so it stops honest mistakes rather than determined abuse. Community reports and admin moderation cover the rest.
 
 ## Local Development
 
@@ -94,9 +101,10 @@ These are intentional scope boundaries for the current portfolio demo, not overs
    cd euroloo
    ```
 
-2. Install dependencies:
+2. Install dependencies (client and server are separate packages):
    ```bash
-   pnpm install
+   cd server && pnpm install && cd ..
+   cd client && pnpm install && cd ..
    ```
 
 3. Set up environment variables:
@@ -111,6 +119,7 @@ These are intentional scope boundaries for the current portfolio demo, not overs
 
 5. Run migrations:
    ```bash
+   cd server
    pnpm prisma migrate dev
    ```
 
@@ -125,6 +134,16 @@ These are intentional scope boundaries for the current portfolio demo, not overs
      cd client
      pnpm dev
      ```
+
+### Checks
+
+Run in either `server/` or `client/`:
+
+```bash
+pnpm lint
+pnpm typecheck
+pnpm test
+```
 
 ## License
 

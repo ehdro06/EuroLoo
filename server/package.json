@@ -1,11 +1,13 @@
 {
-  "name": "server",
+  "name": "euroloo-server",
   "version": "1.0.0",
   "description": "",
   "type": "module",
   "main": "main.ts",
   "scripts": {
     "test": "jest",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
     "dev": "nodemon --exec node --loader ts-node/esm main.ts",
     "build": "npx prisma generate && tsc",
     "start": "node --loader ts-node/esm main.ts",
@@ -18,12 +20,11 @@
   },
   "keywords": [],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "packageManager": "pnpm@10.28.2",
   "dependencies": {
-    "@clerk/clerk-sdk-node": "^5.1.6",
+    "@clerk/backend": "^2.33.8",
     "@google-cloud/storage": "^7.21.0",
-    "@nestjs/axios": "^4.0.1",
     "@nestjs/cache-manager": "^3.1.0",
     "@nestjs/common": "^11.1.12",
     "@nestjs/config": "^4.0.3",
@@ -31,7 +32,6 @@
     "@nestjs/mapped-types": "*",
     "@nestjs/platform-express": "^11.1.12",
     "@prisma/client": "6.0.0",
-    "axios": "^1.13.4",
     "cache-manager": "^7.2.8",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.3",
@@ -42,11 +42,14 @@
     "svix": "^1.84.1"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.5",
     "@nestjs/testing": "^11.1.12",
     "@types/express": "^5.0.6",
     "@types/jest": "^30.0.0",
     "@types/node": "^25.0.10",
     "@types/supertest": "^6.0.3",
+    "eslint": "^9.39.5",
+    "globals": "^17.13.0",
     "jest": "^30.2.0",
     "nodemon": "^3.1.11",
     "prisma": "6.0.0",
@@ -54,6 +57,7 @@
     "ts-jest": "^29.4.6",
     "ts-loader": "^9.5.4",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.72.1"
   }
 }

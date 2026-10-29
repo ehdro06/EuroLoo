@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import * as fs from 'fs';
 import * as readline from 'readline';
 import * as path from 'path';
@@ -28,14 +28,16 @@ function decodeOplString(s: string): string {
     // Stage 3: Cleanup Control Characters (0x00-0x1F) 
     // Remove null bytes, backspaces, etc., but keep Newlines (\n \r) and Tabs (\t)
     // Range \x00-\x08 matches null to backspace. \x0B-\x0C matches VT, FF. \x0E-\x1F matches others.
+    // eslint-disable-next-line no-control-regex -- stripping control characters is the point
     return decoded.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); 
-  } catch (e) {
+  } catch {
     // Fallback: simple text replacement if strict decoding fails entirely
     return s
       .replace(/%20%/g, ' ') // Handle the specific artifact
       .replace(/%20/g, ' ')
       .replace(/%2C/gi, ',')
       .replace(/%3D/gi, '=')
+      // eslint-disable-next-line no-control-regex
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, '');
   }
 }
@@ -81,7 +83,7 @@ async function main() {
   });
 
   const batchSize = 1000;
-  let batch: any[] = [];
+  let batch: Prisma.ToiletCreateManyInput[] = [];
   let count = 0;
   let skippedWays = 0;
 
@@ -189,7 +191,7 @@ async function main() {
   console.log(`Skipped Ways/Relations: ${skippedWays} (OPL format doesn't include geometry for these)`);
 }
 
-async function saveBatch(toilets: any[]) {
+async function saveBatch(toilets: Prisma.ToiletCreateManyInput[]) {
     // We use transaction to ensure data integrity, though createMany is also atomic-ish.
     // However, we want to skip duplicates or upsert.
     // Prisma createMany does not support upsert (on conflict update) natively in all dialects easily with full update logic,

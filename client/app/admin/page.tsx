@@ -41,7 +41,7 @@ export default function AdminDashboard() {
     try {
       await restoreToilet(id).unwrap();
       toast.success('Toilet restored');
-    } catch (err) {
+    } catch {
       toast.error('Failed to restore toilet');
     }
   };
@@ -51,7 +51,7 @@ export default function AdminDashboard() {
     try {
       await deleteToilet(id).unwrap();
       toast.success('Toilet deleted');
-    } catch (err) {
+    } catch {
       toast.error('Failed to delete toilet');
     }
   };
@@ -63,7 +63,7 @@ export default function AdminDashboard() {
     try {
         await updateUserRole({ clerkId, role: newRole }).unwrap();
         toast.success(`User role updated to ${newRole}`);
-    } catch (err) {
+    } catch {
         toast.error('Failed to update role');
     }
   };
