@@ -1,12 +1,14 @@
 
 import { PrismaClient } from '@prisma/client';
-import { clerkClient } from '@clerk/clerk-sdk-node';
+import { createClerkClient } from '@clerk/backend';
 import * as dotenv from 'dotenv';
 import path from 'path';
 
 // Load environment variables from .env
 dotenv.config({ path: path.join(process.cwd(), '.env') });
 dotenv.config({ path: path.join(process.cwd(), '.env.local') });
+
+const clerkClient = createClerkClient({ secretKey: process.env.CLERK_SECRET_KEY });
 
 const prisma = new PrismaClient();
 

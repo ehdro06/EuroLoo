@@ -5,6 +5,9 @@ import { Camera, Loader2, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useGetToiletImagesQuery, useGetPresignedUrlMutation, useConfirmImageUploadMutation } from "@/lib/services/api"
 import { toast } from "sonner"
+
+// Must match ALLOWED_IMAGE_TYPES on the server
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 import { useUser, useClerk } from "@clerk/nextjs"
 
 export function ImageGallery({ toiletId }: { toiletId: number }) {
@@ -31,8 +34,8 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
     if (!file) return
 
     // Basic validation
-    if (!file.type.startsWith('image/')) {
-      toast.error("Invalid file type", { description: "Please select an image file." })
+    if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+      toast.error("Invalid file type", { description: "Please select a JPEG, PNG or WebP image." })
       return
     }
     if (file.size > 5 * 1024 * 1024) { // 5MB limit
@@ -43,11 +46,7 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
     setIsUploading(true)
     try {
       // 1. Get presigned URL
-      const extension = file.name.split('.').pop() || 'jpg'
-      const { uploadUrl, fileUrl } = await getPresignedUrl({ 
-        contentType: file.type, 
-        extension 
-      }).unwrap()
+      const { uploadUrl, fileUrl } = await getPresignedUrl({ contentType: file.type }).unwrap()
 
       // 2. Upload file directly to GCP Storage
       const uploadResponse = await fetch(uploadUrl, {
@@ -97,7 +96,7 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
           type="file" 
           ref={fileInputRef} 
           onChange={handleFileChange} 
-          accept="image/*" 
+          accept={ALLOWED_IMAGE_TYPES.join(",")} 
           className="hidden" 
         />
       </div>

@@ -1,18 +1,13 @@
 import { Module } from '@nestjs/common';
-import { HttpModule } from '@nestjs/axios';
-import { CacheModule } from '@nestjs/cache-manager';
 import { ToiletsController } from './toilets.controller.js';
 import { ToiletsService } from './toilets.service.js';
 import { PrismaModule } from '../prisma/prisma.module.js';
+import { UsersModule } from '../users/users.module.js';
 
 @Module({
-  imports: [
-    HttpModule,    
-    PrismaModule, 
-  ],
+  imports: [PrismaModule, UsersModule],
   controllers: [ToiletsController],
   providers: [ToiletsService],
   exports: [ToiletsService],
 })
 export class ToiletsModule {}
-

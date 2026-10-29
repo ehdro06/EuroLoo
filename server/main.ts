@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './src/app.module.js';
 import { ValidationPipe } from '@nestjs/common';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
@@ -11,9 +12,14 @@ process.on('unhandledRejection', (reason) => {
 });
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule, {
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     rawBody: true,
   });
+
+  // Cloud Run sits behind Google's front end, which appends the real client IP to
+  // X-Forwarded-For. Trusting only that hop makes `req.ip` ignore spoofed values.
+  const trustProxyHops = Number(process.env.TRUST_PROXY_HOPS ?? 1);
+  app.set('trust proxy', trustProxyHops);
 
   // Apply HTTP header security safely for ESM
   app.use(helmet());

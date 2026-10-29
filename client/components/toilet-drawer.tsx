@@ -93,6 +93,15 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
     }
   }
 
+  const handleToggleReviewForm = () => {
+    if (!user && !showReviewForm) {
+      toast.info("Please sign in", { description: "You need an account to write reviews." })
+      setTimeout(() => openSignIn(), 1500)
+      return
+    }
+    setShowReviewForm(!showReviewForm)
+  }
+
   const handleReport = async () => {
     if (!toilet) return
 
@@ -261,7 +270,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
               <Button 
                 variant="outline" 
                 size="sm" 
-                onClick={() => setShowReviewForm(!showReviewForm)}
+                onClick={handleToggleReviewForm}
                 className="gap-2"
               >
                 <MessageSquarePlus className="h-4 w-4" />

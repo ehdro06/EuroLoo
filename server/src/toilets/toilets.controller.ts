@@ -1,17 +1,22 @@
-import { Controller, Get, Post, Body, Query, UseInterceptors, Inject, BadRequestException, Param, UseGuards, Req, Delete } from '@nestjs/common';
-import { ToiletsService } from './toilets.service.js';
-import { CacheInterceptor, CacheKey, CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Controller, Get, Post, Body, Query, Inject, Param, UseGuards, Req, Delete, ParseIntPipe } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
 import { Cache } from 'cache-manager';
+import { ToiletsService } from './toilets.service.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { Roles } from '../auth/roles.decorator.js';
 import { RolesGuard } from '../auth/roles.guard.js';
 import { SimpleRateLimitGuard } from '../common/guards/simple-rate-limit.guard.js';
+import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
+import { CreateToiletDto } from './dto/create-toilet.dto.js';
+import { FindToiletsDto, MIN_RADIUS_METERS } from './dto/find-toilets.dto.js';
+
+const TOILETS_CACHE_TTL_MS = 60 * 60 * 1000;
 
 @Controller('api')
 export class ToiletsController {
   constructor(
     private readonly toiletsService: ToiletsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
   ) {}
 
   @Get('toilets/hidden')
@@ -24,14 +29,8 @@ export class ToiletsController {
   @Post('toilets/:id/restore')
   @UseGuards(ClerkAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  async restoreToilet(@Param('id') id: string) {
-    const toiletId = parseInt(id, 10);
-    if (isNaN(toiletId)) throw new BadRequestException('Invalid toilet ID');
-    
-    // Call the service helper
-    await this.toiletsService.restoreToilet(toiletId);
-    
-    // Invalidate cache
+  async restoreToilet(@Param('id', ParseIntPipe) id: number) {
+    await this.toiletsService.restoreToilet(id);
     await this.cacheManager.clear();
     return { success: true };
   }
@@ -39,150 +38,64 @@ export class ToiletsController {
   @Delete('toilets/:id')
   @UseGuards(ClerkAuthGuard, RolesGuard)
   @Roles('ADMIN')
-  async deleteToilet(@Param('id') id: string) {
-    const toiletId = parseInt(id, 10);
-    if (isNaN(toiletId)) throw new BadRequestException('Invalid toilet ID');
-    
-    await this.toiletsService.deleteToilet(toiletId);
+  async deleteToilet(@Param('id', ParseIntPipe) id: number) {
+    await this.toiletsService.deleteToilet(id);
     await this.cacheManager.clear();
     return { success: true };
   }
 
   @Post('toilets')
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
-  async addToilet(@Body() body: any, @Req() req: any) {
-    if (!body.lat || !body.lng || !body.userLat || !body.userLng) {
-      throw new BadRequestException('Missing required fields: lat, lng, userLat, userLng');
-    }
+  async addToilet(@Body() dto: CreateToiletDto, @Req() req: AuthenticatedRequest) {
+    const toilet = await this.toiletsService.createToilet(dto, req.user.id);
 
-    try {
-      const newToilet = await this.toiletsService.createToilet({
-        lat: parseFloat(body.lat),
-        lng: parseFloat(body.lng),
-        userLat: parseFloat(body.userLat),
-        userLng: parseFloat(body.userLng),
-        clerkId: req.user.id,
-        name: body.name,
-        operator: body.operator,
-        fee: body.fee,
-        isFree: body.isFree,
-        isPaid: body.isPaid,
-        openingHours: body.openingHours,
-        wheelchair: body.wheelchair,
-        isAccessible: body.isAccessible,
-      });
+    // Clear the whole cache so the new toilet is visible immediately.
+    // Fine at this scale; per-area invalidation would be the next step.
+    await this.cacheManager.clear();
 
-      // Invalidate cache for the area 
-      // Simple approach: Clear entire cache on new addition to ensure visibility.
-      // This is acceptable for MVP scale.
-      await this.cacheManager.clear(); 
-
-      return newToilet;
-    } catch (error) {
-      if (error instanceof Error) {
-        if (error.message.includes('too far')) {
-          throw new BadRequestException(error.message);
-        }
-        if (error.message.includes('already exists')) {
-          throw new BadRequestException(error.message);
-        }
-      }
-      throw error;
-    }
+    return toilet;
   }
 
   @Get('toilets')
-  async getToilets(
-    @Query('lat') lat: string,
-    @Query('lng') lng: string,
-    @Query('radius') radius?: string
-  ) {
-    if (!lat || !lng) {
-      throw new BadRequestException('Missing required query params: lat, lng');
+  async getToilets(@Query() query: FindToiletsDto) {
+    // Round to ~1km buckets so nearby requests share a cache entry
+    const lat = Number(query.lat.toFixed(2));
+    const lng = Number(query.lng.toFixed(2));
+    const radius =
+      query.radius !== undefined
+        ? Math.max(MIN_RADIUS_METERS, Math.round(query.radius / 100) * 100)
+        : undefined;
+    const cacheKey = `toilets_${lat}_${lng}_${radius ?? 'default'}`;
+
+    const cached = await this.cacheManager.get(cacheKey);
+    if (cached) {
+      return cached;
     }
 
-    const latitude = parseFloat(lat);
-    const longitude = parseFloat(lng);
-    
-    // Manual Caching Logic (simulated check-then-fetch)
-    const roundedLat = latitude.toFixed(2);
-    const roundedLng = longitude.toFixed(2);
-    const radiusMeters = radius
-      ? Math.max(300, Math.round(parseFloat(radius) / 100) * 100)
-      : undefined;
-    const cacheKey = `toilets_${roundedLat}_${roundedLng}_${radiusMeters ?? 'default'}`;
-
-    const cachedData = await this.cacheManager.get(cacheKey);
-    if (cachedData) {
-      return cachedData;
-    }
-
-    const data = await this.toiletsService.findInRadius(
-      parseFloat(roundedLat),
-      parseFloat(roundedLng),
-      radiusMeters
-    );
-    
-    // Save to cache manually to control the key format strictly
-    await this.cacheManager.set(cacheKey, data, 3600000); // 1 hour in ms (Nest cache-manager v5 uses ms)
-
+    const data = await this.toiletsService.findInRadius(lat, lng, radius);
+    await this.cacheManager.set(cacheKey, data, TOILETS_CACHE_TTL_MS);
     return data;
   }
 
   @Get('toilets/:id/images')
-  async getToiletImages(@Param('id') id: string) {
-    const toiletId = parseInt(id, 10);
-    if (isNaN(toiletId)) throw new BadRequestException('Invalid toilet ID');
-    return this.toiletsService.findImagesByToilet(toiletId);
-  }
-
-  @Get('debug/cache')
-  @UseGuards(ClerkAuthGuard, RolesGuard)
-  @Roles('ADMIN')
-  async getDebugCache() {
-    // Note: cache-manager doesn't standardly expose .keys() or .getStats() easily across all stores
-    // But for the in-memory store, we can try to access the underlying store
-    const store = (this.cacheManager as any).store;
-    let keys = [];
-    
-    if (store.keys) {
-      keys = await store.keys();
-    }
-
-    // Returning what we can find for debug
-    return {
-      keys,
-      message: "Cache inspection depends on underlying store driver"
-    };
+  async getToiletImages(@Param('id', ParseIntPipe) id: number) {
+    return this.toiletsService.findImagesByToilet(id);
   }
 
   @Post('toilets/:id/report')
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
-  async reportToilet(@Param('id') id: string, @Req() req: any) {
-    const toiletId = parseInt(id, 10);
-    if (isNaN(toiletId)) {
-      throw new BadRequestException('Invalid toilet ID');
-    }
-    const result = await this.toiletsService.reportToilet(toiletId, req.user.id);
-    
-    // Invalidate cache so everyone sees this toilet is hidden/reported
+  async reportToilet(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    const result = await this.toiletsService.reportToilet(id, req.user.id);
+    // Reports can hide a toilet, so cached results must be refreshed
     await this.cacheManager.clear();
-    
     return result;
   }
 
   @Post('toilets/:id/verify')
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
-  async verifyToilet(@Param('id') id: string, @Req() req: any) {
-    const toiletId = parseInt(id, 10);
-    if (isNaN(toiletId)) {
-      throw new BadRequestException('Invalid toilet ID');
-    }
-    const result = await this.toiletsService.verifyToilet(toiletId, req.user.id);
-
-    // Invalidate cache so everyone sees the new Verified status
+  async verifyToilet(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    const result = await this.toiletsService.verifyToilet(id, req.user.id);
     await this.cacheManager.clear();
-
     return result;
   }
 }

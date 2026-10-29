@@ -1,4 +1,5 @@
-import { PartialType } from '@nestjs/mapped-types';
+import { PartialType, PickType } from '@nestjs/mapped-types';
 import { CreateReviewDto } from './create-review.dto.js';
 
-export class UpdateReviewDto extends PartialType(CreateReviewDto) {}
+// A review can't be moved to another toilet, so externalId is not editable
+export class UpdateReviewDto extends PartialType(PickType(CreateReviewDto, ['content', 'rating'] as const)) {}

@@ -15,7 +15,7 @@ describe('ReviewsController', () => {
   };
 
   const mockConfigService = {
-    get: jest.fn((key: string) => {
+    get: jest.fn((_key: string) => {
       // return value based on key if needed
       return null;
     }),
