@@ -213,7 +213,7 @@ export function MapContainer({
         zoom={transientZoom}
         zoomSnap={false}
         defaultCenter={toilets.length > 0 ? computedCenter : undefined}
-        defaultZoom={13}
+        defaultZoom={zoom ?? 13}
         
         boxClassname="h-full w-full touch-none"
         animate={true} // Always animate since we aren't fighting React updates anymore

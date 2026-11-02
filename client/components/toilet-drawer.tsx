@@ -8,7 +8,8 @@ import { useState } from "react"
 import { Separator } from "@/components/ui/separator"
 import { useGetReviewsByToiletQuery, useReportToiletMutation, useVerifyToiletMutation } from "@/lib/services/api"
 import { toast } from "sonner"
-import { useUser, useClerk } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
+import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { ImageGallery } from "./image-gallery"
 import { getErrorMessage } from "@/lib/errors"
 
@@ -30,7 +31,7 @@ interface ToiletDrawerProps {
 
 export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) {
   const { user } = useUser()
-  const { openSignIn } = useClerk()
+  const openSignIn = useSignInHere()
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [hasVotedLocally, setHasVotedLocally] = useState(false) 
   const externalId = toilet?.externalId || ""
