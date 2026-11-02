@@ -11,7 +11,7 @@ import "./globals.css"
 const geist = Geist({ subsets: ["latin"] })
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://euroloo.app"),
+  metadataBase: new URL("https://euroloo.vercel.app"),
   title: "EuroLoo - Privacy-First Public Toilet Finder",
   description: "Find public toilets across Europe. Privacy-friendly, no tracking, powered by open data.",
   manifest: "/manifest.json",
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     type: "website",
-    url: "https://euroloo.app",
+    url: "https://euroloo.vercel.app",
     title: "EuroLoo",
     description: "Find free toilets near you",
     siteName: "EuroLoo",
