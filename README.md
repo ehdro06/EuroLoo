@@ -22,7 +22,8 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 ### Environment and Secret Management
 
 - Secrets are configured in deployment dashboards (Vercel, GCP, Neon, Clerk).
-- The Cloud Build migration step reads Neon's direct (non-pooled) connection string from the Secret Manager secret `euroloo-migrate-database-url`.
+- The running API uses Neon's pooled connection string; database migrations use the direct one.
+- See [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) for every service, environment variable, secret and IAM role, plus troubleshooting.
 - No secrets should be committed to git.
 - Only template files are committed:
   - `client/.env.example`
