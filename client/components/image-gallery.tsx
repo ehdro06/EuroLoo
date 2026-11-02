@@ -8,11 +8,13 @@ import { toast } from "sonner"
 
 // Must match ALLOWED_IMAGE_TYPES on the server
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
-import { useUser, useClerk } from "@clerk/nextjs"
+import { useUser } from "@clerk/nextjs"
+import { useSignInHere } from "@/hooks/use-sign-in-here"
+import { getErrorMessage } from "@/lib/errors"
 
 export function ImageGallery({ toiletId }: { toiletId: number }) {
   const { user } = useUser()
-  const { openSignIn } = useClerk()
+  const openSignIn = useSignInHere()
   const fileInputRef = useRef<HTMLInputElement>(null)
   
   const { data: images, isLoading } = useGetToiletImagesQuery(toiletId)
@@ -44,11 +46,14 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
     }
 
     setIsUploading(true)
+    // Track the current step so the error message says where it failed
+    let step = "requesting an upload URL"
     try {
       // 1. Get presigned URL
       const { uploadUrl, fileUrl } = await getPresignedUrl({ contentType: file.type }).unwrap()
 
       // 2. Upload file directly to GCP Storage
+      step = "uploading to storage"
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
         body: file,
@@ -58,15 +63,18 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
       })
 
       if (!uploadResponse.ok) {
-        throw new Error('Failed to upload image to cloud storage')
+        throw new Error(`Storage responded with ${uploadResponse.status}`)
       }
 
       // 3. Confirm with our API
+      step = "saving the photo"
       await confirmUpload({ toiletId, fileUrl }).unwrap()
       toast.success("Photo uploaded successfully!")
     } catch (error) {
-      console.error("Upload failed", error)
-      toast.error("Upload failed", { description: "There was a problem uploading your photo." })
+      console.error(`Upload failed while ${step}`, error)
+      toast.error("Upload failed", {
+        description: `Failed while ${step}: ${getErrorMessage(error, "unknown error")}`,
+      })
     } finally {
       setIsUploading(false)
       if (fileInputRef.current) {

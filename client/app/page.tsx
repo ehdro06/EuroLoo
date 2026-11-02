@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { Filter, ShieldCheck, Plus, LocateFixed, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
@@ -8,18 +9,52 @@ import { MapContainer } from "@/components/map-container"
 import { useToilets, type Toilet } from "@/hooks/use-toilets"
 import { AddToiletDialog } from "@/components/add-toilet-dialog"
 import { toast } from "sonner"
-import { SignedIn, SignedOut, SignInButton, UserButton, useClerk, useUser } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
+import { useSignInHere } from "@/hooks/use-sign-in-here"
 import Image from "next/image"
 
 // iOS Safari exposes the compass heading and a permission prompt on orientation events.
 type CompassOrientationEvent = DeviceOrientationEvent & { webkitCompassHeading?: number }
 type IOSDeviceOrientationEvent = { requestPermission?: () => Promise<'granted' | 'denied'> }
 
-export default function HomePage() {
-  const { openSignIn } = useClerk();
+const DEFAULT_VIEW: MapView = { center: [52.52, 13.405], zoom: 13, toiletId: null }
+
+type MapView = { center: [number, number]; zoom: number; toiletId: number | null }
+
+// The map position and the open toilet live in the URL (?lat=&lng=&z=&toilet=)
+// so they survive a reload, e.g. the redirect back from signing in.
+function parseMapView(params: URLSearchParams): MapView {
+  const lat = Number(params.get("lat"))
+  const lng = Number(params.get("lng"))
+  const zoom = Number(params.get("z"))
+  const toiletId = Number(params.get("toilet"))
+  const hasCenter =
+    params.has("lat") && params.has("lng") && Math.abs(lat) <= 90 && Math.abs(lng) <= 180
+  return {
+    center: hasCenter ? [lat, lng] : DEFAULT_VIEW.center,
+    zoom: params.has("z") && zoom >= 3 && zoom <= 19 ? zoom : DEFAULT_VIEW.zoom,
+    toiletId: Number.isInteger(toiletId) && toiletId > 0 ? toiletId : null,
+  }
+}
+
+export default function Page() {
+  // useSearchParams needs a Suspense boundary on statically rendered pages
+  return (
+    <Suspense fallback={null}>
+      <HomePage />
+    </Suspense>
+  )
+}
+
+function HomePage() {
+  const openSignIn = useSignInHere();
   const { user } = useUser();
+  const searchParams = useSearchParams()
+  const [initialView] = useState(() => parseMapView(searchParams))
   const [showFreeOnly, setShowFreeOnly] = useState(false)
   const [selectedToilet, setSelectedToilet] = useState<Toilet | null>(null)
+  // Toilet to reopen once the map data has loaded (from the URL)
+  const [restoreToiletId, setRestoreToiletId] = useState<number | null>(initialView.toiletId)
 
   // New State for Location/Adding
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
@@ -35,13 +70,34 @@ export default function HomePage() {
   // `mapCenter` updates immediately so the map can preserve the user's
   // interaction (pointer zoom/pan) without snapping. `queryCenter` is
   // debounced and used for the toilets API request to avoid spamming the API.
-  const [mapCenter, setMapCenter] = useState<[number, number]>([52.52, 13.405])
+  const [mapCenter, setMapCenter] = useState<[number, number]>(initialView.center)
   const [queryCenter, setQueryCenter] = useState<[number, number]>(mapCenter)
-  const [zoom, setZoom] = useState<number>(13)
+  const [zoom, setZoom] = useState<number>(initialView.zoom)
   // We need to pass the zoom level to useToilets so it can calculate the correct bounding box size
   // We use a queryZoom for fetching to avoid excessive API calls while zooming (similar to queryCenter)
-  const [queryZoom, setQueryZoom] = useState<number>(13)
+  const [queryZoom, setQueryZoom] = useState<number>(initialView.zoom)
   const { toilets, loading, error } = useToilets(queryCenter, queryZoom)
+
+  if (restoreToiletId !== null && !loading) {
+    setRestoreToiletId(null)
+    const toilet = toilets.find((t) => t.id === restoreToiletId)
+    if (toilet) setSelectedToilet(toilet)
+  }
+
+  // Mirror the map view into the URL (debounced; browsers rate-limit history updates)
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const params = new URLSearchParams(window.location.search)
+      params.set("lat", mapCenter[0].toFixed(5))
+      params.set("lng", mapCenter[1].toFixed(5))
+      params.set("z", String(Math.round(zoom)))
+      const toiletId = selectedToilet?.id ?? restoreToiletId
+      if (toiletId) params.set("toilet", String(toiletId))
+      else params.delete("toilet")
+      window.history.replaceState(null, "", `${window.location.pathname}?${params}`)
+    }, 300)
+    return () => window.clearTimeout(timer)
+  }, [mapCenter, zoom, selectedToilet, restoreToiletId])
 
   // Debounce map moves so we don't refetch continuously while panning/zooming
   const pendingCenterRef = useRef<[number, number] | null>(null)
@@ -241,9 +297,7 @@ export default function HomePage() {
           <div className="flex items-center gap-2">
             <div className="flex items-center gap-2 mr-2">
               <SignedOut>
-                <SignInButton mode="modal">
-                  <Button variant="ghost" size="sm">Sign In</Button>
-                </SignInButton>
+                <Button variant="ghost" size="sm" onClick={openSignIn}>Sign In</Button>
               </SignedOut>
               <SignedIn>
                 {user?.publicMetadata?.role === 'admin' && (
