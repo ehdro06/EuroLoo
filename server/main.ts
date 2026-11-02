@@ -24,10 +24,14 @@ async function bootstrap() {
   // Apply HTTP header security safely for ESM
   app.use(helmet());
 
-  // Restrict CORS based on environment
+  // Restrict CORS to the frontend origins in production (comma-separated list)
   const isProd = process.env.NODE_ENV === 'production';
+  const allowedOrigins = (process.env.CORS_ORIGINS ?? 'https://euroloo.vercel.app')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
   app.enableCors({
-    origin: isProd ? 'https://euroloo.app' : true,
+    origin: isProd ? allowedOrigins : true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
     credentials: true,
   });

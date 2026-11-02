@@ -30,7 +30,7 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 
 ## Links
 
-- **Live URL**: [https://euroloo.app](https://euroloo.app)
+- **Live URL**: [https://euroloo.vercel.app](https://euroloo.vercel.app)
 - **Repository**: [https://github.com/ehdro06/euroloo](https://github.com/ehdro06/euroloo)
 
 ## Features
