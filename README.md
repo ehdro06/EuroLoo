@@ -15,6 +15,7 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 - **Frontend (Client):** [Next.js](https://nextjs.org/) on **Vercel** — SSR/SSG and edge routing
 - **Backend (API):** [NestJS](https://nestjs.com/) on **GCP Cloud Run** — stateless, auto-scaling API
 - **Database:** PostgreSQL with **PostGIS** on **Neon** — connection pooling via `pgbouncer`
+- **Toilet data:** OpenStreetMap via the Overpass API, synced weekly per country by a **Cloud Run Job** on **Cloud Scheduler** (`server/scripts/sync-osm.ts`)
 - **Authentication:** [Clerk](https://clerk.dev/) for identity management and JWT verification
 - **CI:** GitHub Actions (lint, type check, tests, migrations, builds)
 - **CD:** Google Cloud Build builds the image, applies Prisma migrations, then deploys to Cloud Run (`server/cloudbuild.yaml`)

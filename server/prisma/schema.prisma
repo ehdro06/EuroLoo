@@ -35,6 +35,12 @@ model Toilet {
   // specific PostGIS geography column
   location     Unsupported("geometry(Point, 4326)")?
 
+  // OpenStreetMap sync (scripts/sync-osm.ts). Null for user-added toilets.
+  countryCode  String?
+  osmSyncedAt  DateTime?
+  // Set when the toilet disappears from OpenStreetMap; such toilets are hidden from the map
+  osmDeletedAt DateTime?
+
   // Data Integrity / Crowd Control
   reportCount  Int      @default(0)
   verifyCount  Int      @default(0)
@@ -52,6 +58,7 @@ model Toilet {
   votes         Vote[]
 
   @@index([lat, lon])
+  @@index([countryCode])
 }
 
 model Review {
