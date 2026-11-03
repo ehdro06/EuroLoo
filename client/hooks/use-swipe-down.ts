@@ -2,8 +2,12 @@
 
 import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent } from "react"
 
-const CLOSE_DISTANCE_PX = 120
-const CLOSE_VELOCITY_PX_PER_MS = 0.5
+// Close after dragging about a third of the screen (at least 200px)...
+const MIN_CLOSE_DISTANCE_PX = 200
+const CLOSE_DISTANCE_SCREEN_RATIO = 0.3
+// ...or after a deliberate flick
+const FLICK_MIN_DISTANCE_PX = 80
+const FLICK_VELOCITY_PX_PER_MS = 0.8
 const ANIMATION_MS = 200
 
 // Drag-down-to-dismiss for bottom sheets and viewers. Spread `handlers` on the
@@ -49,7 +53,9 @@ export function useSwipeDown(onClose: () => void) {
       const distance = Math.max(0, event.clientY - start.current.y)
       const velocity = distance / Math.max(1, event.timeStamp - start.current.time)
       reset()
-      if (distance > CLOSE_DISTANCE_PX || (distance > 30 && velocity > CLOSE_VELOCITY_PX_PER_MS)) {
+      const closeDistance = Math.max(MIN_CLOSE_DISTANCE_PX, window.innerHeight * CLOSE_DISTANCE_SCREEN_RATIO)
+      const isFlick = distance > FLICK_MIN_DISTANCE_PX && velocity > FLICK_VELOCITY_PX_PER_MS
+      if (distance > closeDistance || isFlick) {
         dismiss()
       } else {
         setOffset(0)
