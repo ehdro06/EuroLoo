@@ -1,4 +1,11 @@
-import { CanActivate, ExecutionContext, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  CanActivate,
+  ExecutionContext,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { verifyToken } from '@clerk/backend';
 import { ConfigService } from '@nestjs/config';
 
@@ -17,13 +24,14 @@ export class ClerkAuthGuard implements CanActivate {
       throw new UnauthorizedException('No token provided');
     }
 
-    try {
-      const secretKey = this.configService.get<string>('CLERK_SECRET_KEY');
-      if (!secretKey) {
-          this.logger.error('CLERK_SECRET_KEY is missing in environment variables');
-          throw new UnauthorizedException('Server configuration error');
-      }
+    // A missing key is a server problem, not the user's, so don't report it as a bad token
+    const secretKey = this.configService.get<string>('CLERK_SECRET_KEY');
+    if (!secretKey) {
+      this.logger.error('CLERK_SECRET_KEY is missing in environment variables');
+      throw new InternalServerErrorException('Authentication is not configured on the server');
+    }
 
+    try {
       // Verify the token
       const sessionClaims = await verifyToken(token, {
           secretKey,

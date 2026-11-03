@@ -43,6 +43,14 @@ async function bootstrap() {
     transform: true,
   }));
 
+  // Warn at startup about settings that would otherwise only fail on the first request
+  const missingEnv = ['CLERK_SECRET_KEY', 'CLERK_WEBHOOK_SECRET', 'GCS_BUCKET_NAME'].filter(
+    (name) => !process.env[name],
+  );
+  if (missingEnv.length > 0) {
+    console.warn(`Missing environment variables: ${missingEnv.join(', ')}`);
+  }
+
   await app.listen(process.env.PORT || 4000, '0.0.0.0');
   console.log(`NestJS Server running on port ${process.env.PORT || 4000}`);
 }
