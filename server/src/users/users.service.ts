@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { User, Role } from '@prisma/client';
 import { createClerkClient } from '@clerk/backend';
 import { ConfigService } from '@nestjs/config';
+import { displayNameFrom } from './display-name.js';
 
 @Injectable()
 export class UsersService {
@@ -17,14 +18,29 @@ export class UsersService {
     return createClerkClient({ secretKey: this.configService.get<string>('CLERK_SECRET_KEY') });
   }
 
-  // Users are normally created by the Clerk webhook; this covers the case where
-  // a request arrives before the webhook has been processed.
+  // Users are normally created by the Clerk webhook; this covers requests that
+  // arrive before (or without) it, and fills in a missing display name from Clerk.
   async ensureUser(clerkId: string): Promise<User> {
-    return this.prisma.user.upsert({
+    const user = await this.prisma.user.upsert({
       where: { clerkId },
       update: {},
       create: { clerkId, role: 'USER' },
     });
+    if (user.username) return user;
+
+    try {
+      const profile = await this.clerkClient.users.getUser(clerkId);
+      return await this.prisma.user.update({
+        where: { clerkId },
+        data: { username: displayNameFrom(profile) },
+      });
+    } catch (error) {
+      // A missing name shouldn't block the user's action
+      this.logger.warn(
+        `Could not load Clerk profile for ${clerkId}: ${error instanceof Error ? error.message : String(error)}`,
+      );
+      return user;
+    }
   }
 
   async findByClerkId(clerkId: string) {

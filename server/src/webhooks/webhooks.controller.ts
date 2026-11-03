@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { Webhook } from 'svix';
 import { ConfigService } from '@nestjs/config';
 import { SimpleRateLimitGuard } from '../common/guards/simple-rate-limit.guard.js';
+import { displayNameFrom } from '../users/display-name.js';
 
 // The subset of Clerk's user webhook payload that we use
 interface ClerkUserEvent {
@@ -11,6 +12,8 @@ interface ClerkUserEvent {
   data: {
     id: string;
     username?: string | null;
+    first_name?: string | null;
+    last_name?: string | null;
     email_addresses?: { email_address: string }[];
   };
 }
@@ -66,8 +69,9 @@ export class WebhooksController {
     const { id } = evt.data;
     const eventType = evt.type;
     if (eventType === 'user.created' || eventType === 'user.updated') {
-      const { id, email_addresses, username } = evt.data;
+      const { id, email_addresses, username, first_name, last_name } = evt.data;
       const email = email_addresses?.[0]?.email_address;
+      const displayName = displayNameFrom({ username, firstName: first_name, lastName: last_name });
 
       // Handle email collision: if email exists on a different clerkId (e.g. from a previous dev session),
       // update that record to the new clerkId instead of failing.
@@ -88,12 +92,12 @@ export class WebhooksController {
         where: { clerkId: id },
         update: {
           email: email,
-          username: username || email?.split('@')[0] || 'User',
+          username: displayName,
         },
         create: {
           clerkId: id,
           email: email,
-          username: username || email?.split('@')[0] || 'User',
+          username: displayName,
           role: 'USER', // Default role
         },
       });

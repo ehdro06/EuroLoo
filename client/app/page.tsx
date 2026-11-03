@@ -16,6 +16,7 @@ import { MapFilters } from "@/components/map-filters"
 import { applyToiletFilters, countActiveFilters, NO_FILTERS, type ToiletFilters } from "@/lib/toilet-filters"
 import type { Place } from "@/lib/geocoding"
 import Image from "next/image"
+import Link from "next/link"
 
 // iOS Safari exposes the compass heading and a permission prompt on orientation events.
 type CompassOrientationEvent = DeviceOrientationEvent & { webkitCompassHeading?: number }
@@ -467,7 +468,10 @@ function HomePage() {
         <div className="absolute bottom-4 left-4 z-[1000] flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 shadow-lg">
           <ShieldCheck className="h-4 w-4 text-black" aria-hidden="true" />
           <p className="text-xs font-medium text-black">
-            Privacy Friendly: No Cookies, No Tracking. Powered by Open Data.
+            No tracking. Powered by open data.{" "}
+            <Link href="/privacy" className="underline underline-offset-2">
+              Privacy
+            </Link>
           </p>
         </div>
       </main>
