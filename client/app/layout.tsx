@@ -33,8 +33,7 @@ export const viewport: Viewport = {
   themeColor: "#ffffff",
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // Page zoom stays enabled for accessibility (WCAG 1.4.4); the map handles its own pinch gestures
 }
 
 export default function RootLayout({

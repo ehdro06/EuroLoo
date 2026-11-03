@@ -120,7 +120,7 @@ export function PlaceSearch({ near, onSelect }: PlaceSearchProps) {
         aria-activedescendant={showList && results[activeIndex] ? `${listId}-${activeIndex}` : undefined}
         enterKeyHint="search"
         autoComplete="off"
-        className="h-10 w-full rounded-full border border-black/10 bg-slate-50 pl-9 pr-10 text-sm text-black placeholder:text-black/40 focus:border-black/30 focus:bg-white focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+        className="h-10 w-full rounded-full border border-black/10 bg-slate-50 pl-9 pr-10 text-base text-black sm:text-sm placeholder:text-black/40 focus:border-black/30 focus:bg-white focus:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center">
         {loading ? (
