@@ -57,6 +57,7 @@ export class ToiletsService {
         "isVerified", "reportCount", "verifyCount", "hasChangingTable"
       FROM "Toilet"
       WHERE "isHidden" = false
+        AND "osmDeletedAt" IS NULL
         AND ST_DWithin(
         location::geography,
         ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
@@ -81,7 +82,8 @@ export class ToiletsService {
       const nearby = await tx.$queryRaw<{ id: number }[]>`
         SELECT id
         FROM "Toilet"
-        WHERE ST_DWithin(
+        WHERE "osmDeletedAt" IS NULL
+          AND ST_DWithin(
           location::geography,
           ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
           ${DUPLICATE_RADIUS_METERS}

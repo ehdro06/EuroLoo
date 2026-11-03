@@ -14,6 +14,7 @@ Browser ──► Vercel (Next.js, client/) ──► Cloud Run (NestJS, server/
 | API | Cloud Run service `euroloo-git` in `europe-west1` | Cloud Build trigger on pushes to `main` (`server/cloudbuild.yaml`) |
 | Database | Neon Postgres with PostGIS | Migrations run by Cloud Build before each API deploy |
 | Photos | Cloud Storage bucket in `europe-west1` | — |
+| Toilet data | Cloud Run Job `euroloo-osm-sync`, triggered weekly by Cloud Scheduler | Image updated by Cloud Build on each deploy |
 | Auth | Clerk | — |
 
 ## Neon (database)
@@ -94,6 +95,49 @@ If you add a custom domain, add it to the bucket CORS `origin` list as well as `
 3. **migrate**: `prisma migrate deploy` using `euroloo-migrate-database-url`; if this fails, nothing is deployed
 4. **deploy** the image to the `euroloo-git` Cloud Run service
 
+## OpenStreetMap sync (toilet data)
+
+Toilet data comes from OpenStreetMap through the [Overpass API](https://wiki.openstreetmap.org/wiki/Overpass_API). `server/scripts/sync-osm.ts` queries each country in `server/src/osm/european-countries.ts` for `amenity=toilets` (points and buildings), then:
+
+- **upserts** them by `externalId` (`node/123`, `way/456`), updating only OpenStreetMap fields; votes, reviews, photos and moderation state are kept
+- **hides** toilets of that country that OpenStreetMap no longer has (`osmDeletedAt`), unless the country returned less than half of what's stored, which usually means a partial Overpass response
+- never touches toilets added by users
+
+It runs as a Cloud Run Job using the API's Docker image, waiting 10 seconds between countries to stay within the public Overpass server's fair-use limits. A failed country doesn't stop the others; the execution is marked failed so it shows up in the console.
+
+### One-time setup
+
+```bash
+PROJECT_ID=<PROJECT_ID>
+SA=<PROJECT_NUMBER>-compute@developer.gserviceaccount.com
+IMAGE=$(gcloud run services describe euroloo-git --region europe-west1 \
+  --format='value(spec.template.spec.containers[0].image)')
+
+# The job reuses the API image; migrations need the direct URL, and so does this long batch job
+gcloud run jobs create euroloo-osm-sync --region europe-west1 --image "$IMAGE" \
+  --command node --args dist/scripts/sync-osm.js \
+  --set-secrets DATABASE_URL=euroloo-migrate-database-url:latest \
+  --task-timeout 3h --max-retries 0 --memory 1Gi
+
+# Quick test with one small country
+gcloud run jobs execute euroloo-osm-sync --region europe-west1 --update-env-vars OSM_COUNTRIES=LU --wait
+
+# First full run; OSM_RETIRE_UNSEEN also hides rows from the old PBF import that OpenStreetMap no longer has
+gcloud run jobs execute euroloo-osm-sync --region europe-west1 --update-env-vars OSM_RETIRE_UNSEEN=true
+
+# Weekly schedule: Sundays 03:17 Berlin time
+gcloud run jobs add-iam-policy-binding euroloo-osm-sync --region europe-west1 \
+  --member serviceAccount:$SA --role roles/run.invoker
+gcloud scheduler jobs create http euroloo-osm-sync-weekly --location europe-west1 \
+  --schedule "17 3 * * 0" --time-zone Europe/Berlin \
+  --uri "https://run.googleapis.com/v2/projects/$PROJECT_ID/locations/europe-west1/jobs/euroloo-osm-sync:run" \
+  --http-method POST --oauth-service-account-email $SA
+```
+
+Settings (env vars on the job or per execution): `OSM_COUNTRIES` (comma-separated ISO codes, default all), `OVERPASS_URL` (default `https://overpass-api.de/api/interpreter`), `OSM_RETIRE_UNSEEN=true`.
+
+Locally: `cd server && OSM_COUNTRIES=LU pnpm sync:osm`.
+
 ## Vercel (frontend)
 
 Project settings: Root Directory `client`, framework Next.js. Environment variables:
@@ -119,6 +163,7 @@ Project settings: Root Directory `client`, framework Next.js. Environment variab
 | Cloud Build fails at `migrate` | Migration secret holds the pooled URL, or Cloud Build can't read the secret |
 | New Cloud Run instances fail to start | `euroloo-database-url` deleted or not readable by the service account |
 | "Authentication is not configured on the server" (500) | `CLERK_SECRET_KEY` missing on Cloud Run; the API also logs `Missing environment variables` at startup |
+| OSM sync execution failed | Check its logs for `sync failed`; usually an Overpass timeout or rate limit for one country. Rerun with `OSM_COUNTRIES=<code>` |
 | Photo upload: "Failed while requesting an upload URL" | `GCS_BUCKET_NAME` unset, or missing Token Creator role |
 | Photo upload: "Failed while uploading to storage" | Bucket CORS doesn't include the site's origin |
 | Photo upload: "Failed while saving the photo" | Missing `storage.objectAdmin` on the bucket, or the file is over 5MB / not JPEG, PNG or WebP |

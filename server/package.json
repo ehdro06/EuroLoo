@@ -13,10 +13,8 @@
     "start": "node --loader ts-node/esm main.ts",
     "start:prod": "npx prisma migrate deploy && node dist/main.js",
     "prisma:generate": "npx prisma generate",
-    "prisma:migrate": "npx prisma migrate deploy"
-  },
-  "prisma": {
-    "seed": "node --loader ts-node/esm prisma/seed.ts"
+    "prisma:migrate": "npx prisma migrate deploy",
+    "sync:osm": "node --loader ts-node/esm scripts/sync-osm.ts"
   },
   "keywords": [],
   "author": "",
