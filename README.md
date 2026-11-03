@@ -4,11 +4,60 @@
 
 A privacy-first, community-driven public toilet finder for Europe, built as a full-stack portfolio demo app.
 
+**Live:** [euroloo.vercel.app](https://euroloo.vercel.app)
+
+## Screenshots
+
+<!--
+  TODO: add screenshots and a short GIF (store them in docs/images/):
+  - docs/images/map.png          map with toilet pins and filter chips (phone width)
+  - docs/images/details.png      toilet details sheet with accessibility info and photos
+  - docs/images/search.png       place search results
+  - docs/images/demo.gif         ~10s: search a city, open a toilet, swipe the sheet away
+  Then replace this comment with, for example:
+  <p>
+    <img src="docs/images/map.png" width="260" alt="Map with toilet pins" />
+    <img src="docs/images/details.png" width="260" alt="Toilet details" />
+    <img src="docs/images/search.png" width="260" alt="Place search" />
+  </p>
+-->
+_Screenshots coming soon. In the meantime, try the [live app](https://euroloo.vercel.app) on your phone._
+
 ## Why
 
 Access to sanitation is a fundamental human right. EuroLoo helps people quickly find clean, accessible, and free public toilets without sacrificing privacy.
 
 ## Architecture
+
+```mermaid
+flowchart LR
+  user([Browser / phone])
+  subgraph Vercel
+    web[Next.js client]
+  end
+  subgraph GCP["Google Cloud (europe-west1)"]
+    api[NestJS API<br/>Cloud Run]
+    job[OSM sync job<br/>Cloud Run Job]
+    sched[Cloud Scheduler<br/>weekly]
+    gcs[(Cloud Storage<br/>photos)]
+  end
+  db[(Neon Postgres<br/>+ PostGIS)]
+  clerk[Clerk<br/>auth]
+  overpass[Overpass API<br/>OpenStreetMap]
+  photon[Photon<br/>place search]
+
+  user --> web
+  web -- REST + JWT --> api
+  web -- sign-in --> clerk
+  web -- search --> photon
+  web -- signed URL upload --> gcs
+  api -- verify token --> clerk
+  api -- pooled --> db
+  api --> gcs
+  sched --> job
+  job -- per country --> overpass
+  job -- direct --> db
+```
 
 EuroLoo runs on a distributed, serverless stack designed for rapid scaling and low maintenance overhead:
 
@@ -41,7 +90,7 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 - **Place search** (cities, stations, addresses) via Photon, an OpenStreetMap geocoder
 - **Filters** for free, wheelchair-accessible, baby-changing and verified toilets
 - **Community contributions** for add/report/verify flows
-- **Privacy-first UX** with no invasive tracking model
+- **Privacy-first UX**: no tracking cookies, location stays in the browser, plain-language [privacy page](https://euroloo.vercel.app/privacy)
 - **Auth-protected actions** using Clerk + backend guards
 - **Cache-backed API reads** for fast location queries
 
