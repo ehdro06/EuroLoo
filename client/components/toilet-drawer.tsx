@@ -13,6 +13,7 @@ import { useUser } from "@clerk/nextjs"
 import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { ImageGallery } from "./image-gallery"
 import { getErrorMessage } from "@/lib/errors"
+import { useSwipeDown } from "@/hooks/use-swipe-down"
 
 const VOTED_STORAGE_KEY = "votedToilets"
 
@@ -47,6 +48,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
   const { user } = useUser()
   const openSignIn = useSignInHere()
   const [showReviewForm, setShowReviewForm] = useState(false)
+  const swipe = useSwipeDown(() => onOpenChange(false))
   const [hasVotedLocally, setHasVotedLocally] = useState(false) 
   const externalId = toilet?.externalId || ""
   
@@ -157,40 +159,49 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
   return (
     <>
       {/* Overlay */}
-      <div className="fixed inset-0 z-[1001] bg-black/40" onClick={() => onOpenChange(false)} aria-hidden="true" />
+      <div
+        className="fixed inset-0 z-[1001] bg-black/40"
+        style={{ opacity: swipe.progress }}
+        onClick={swipe.dismiss}
+        aria-hidden="true"
+      />
 
       {/* Drawer */}
       <div
         className="fixed bottom-0 left-0 right-0 z-[1002] rounded-t-2xl border-t border-black/10 bg-white shadow-2xl max-h-[85vh] overflow-y-auto"
+        style={swipe.style}
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
       >
-        <div className="mx-auto max-w-2xl p-6">
-          {/* Handle */}
-          <div className="mx-auto mb-4 h-1 w-12 rounded-full bg-black/20" />
+        <div className="mx-auto max-w-2xl px-6 pb-6">
+          {/* Drag area: the handle and header follow the finger; drag down to close */}
+          <div {...swipe.handlers} className="cursor-grab touch-none select-none pt-3 active:cursor-grabbing">
+            {/* Handle */}
+            <div className="mx-auto mb-5 h-1.5 w-12 rounded-full bg-black/20" />
 
-          {/* Header */}
-          <div className="mb-4 flex items-start justify-between">
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 id="drawer-title" className="text-2xl font-semibold tracking-tight text-black">
-                  {toilet.name || "Public Toilet"}
-                </h2>
-                {isVerified && (
-                  <CheckCircle className="h-5 w-5 text-blue-500" aria-label="Verified Location" />
-                )}
-                {!isVerified && (
-                  <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                    Unverified
-                  </span>
-                )}
+            {/* Header */}
+            <div className="mb-4 flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2">
+                  <h2 id="drawer-title" className="text-2xl font-semibold tracking-tight text-black">
+                    {toilet.name || "Public Toilet"}
+                  </h2>
+                  {isVerified && (
+                    <CheckCircle className="h-5 w-5 text-blue-500" aria-label="Verified Location" />
+                  )}
+                  {!isVerified && (
+                    <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
+                      Unverified
+                    </span>
+                  )}
+                </div>
+                {toilet.operator && <p className="mt-1 text-sm text-black/60">Operated by {toilet.operator}</p>}
               </div>
-              {toilet.operator && <p className="mt-1 text-sm text-black/60">Operated by {toilet.operator}</p>}
+              <Button variant="ghost" size="icon" onClick={swipe.dismiss} aria-label="Close details">
+                <X className="h-5 w-5" />
+              </Button>
             </div>
-            <Button variant="ghost" size="icon" onClick={() => onOpenChange(false)} aria-label="Close details">
-              <X className="h-5 w-5" />
-            </Button>
           </div>
 
           {/* Verification Actions */}
