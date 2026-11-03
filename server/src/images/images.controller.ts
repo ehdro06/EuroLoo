@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Req } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Req, Delete, Param, ParseIntPipe } from '@nestjs/common';
 import { ImagesService } from './images.service.js';
 import { ClerkAuthGuard } from '../auth/clerk-auth.guard.js';
 import { SimpleRateLimitGuard } from '../common/guards/simple-rate-limit.guard.js';
@@ -14,6 +14,12 @@ export class ImagesController {
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
   getPresignedUrl(@Body() dto: PresignedUrlDto) {
     return this.imagesService.generatePresignedUrl(dto.contentType);
+  }
+
+  @Delete(':id')
+  @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
+  deleteImage(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    return this.imagesService.deleteImage(id, req.user.id);
   }
 
   @Post('confirm')

@@ -1,4 +1,11 @@
-import { BadRequestException, Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  InternalServerErrorException,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { Storage } from '@google-cloud/storage';
 import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
@@ -65,6 +72,36 @@ export class ImagesService {
     return this.prisma.image.create({
       data: { url: fileUrl, toiletId, userId: user.id },
     });
+  }
+
+  // The uploader or an admin can delete a photo
+  async deleteImage(imageId: number, clerkId: string) {
+    const image = await this.prisma.image.findUnique({
+      where: { id: imageId },
+      select: { id: true, url: true, user: { select: { clerkId: true } } },
+    });
+    if (!image) throw new NotFoundException('Image not found');
+
+    if (image.user?.clerkId !== clerkId) {
+      const requester = await this.usersService.findByClerkId(clerkId);
+      if (requester?.role !== 'ADMIN') {
+        throw new ForbiddenException('You can only delete your own photos');
+      }
+    }
+
+    await this.prisma.image.delete({ where: { id: imageId } });
+
+    // The database row is the source of truth; a leftover file is harmless, so don't fail the request
+    if (image.url.startsWith(this.publicUrlPrefix)) {
+      const objectName = image.url.slice(this.publicUrlPrefix.length);
+      try {
+        await this.storage.bucket(this.bucketName).file(objectName).delete({ ignoreNotFound: true });
+      } catch (error) {
+        this.logger.warn(`Failed to delete ${objectName} from storage: ${error instanceof Error ? error.message : error}`);
+      }
+    }
+
+    return { success: true };
   }
 
   // Signed URLs can't cap the upload size, so check what actually landed in the bucket

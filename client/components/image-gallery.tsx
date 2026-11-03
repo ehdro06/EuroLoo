@@ -1,16 +1,23 @@
 "use client"
 
-import { useState, useRef } from "react"
+import { useState, useRef, useCallback } from "react"
 import { Camera, Loader2, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useGetToiletImagesQuery, useGetPresignedUrlMutation, useConfirmImageUploadMutation } from "@/lib/services/api"
+import {
+  useGetToiletImagesQuery,
+  useGetPresignedUrlMutation,
+  useConfirmImageUploadMutation,
+  useDeleteImageMutation,
+  type ImageRecord,
+} from "@/lib/services/api"
 import { toast } from "sonner"
-
-// Must match ALLOWED_IMAGE_TYPES on the server
-const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 import { useUser } from "@clerk/nextjs"
 import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { getErrorMessage } from "@/lib/errors"
+import { ImageLightbox } from "./image-lightbox"
+
+// Must match ALLOWED_IMAGE_TYPES on the server
+const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 export function ImageGallery({ toiletId }: { toiletId: number }) {
   const { user } = useUser()
@@ -20,7 +27,25 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
   const { data: images, isLoading } = useGetToiletImagesQuery(toiletId)
   const [getPresignedUrl] = useGetPresignedUrlMutation()
   const [confirmUpload] = useConfirmImageUploadMutation()
+  const [deleteImage, { isLoading: isDeleting }] = useDeleteImageMutation()
   const [isUploading, setIsUploading] = useState(false)
+  const [viewedImage, setViewedImage] = useState<ImageRecord | null>(null)
+  const closeViewer = useCallback(() => setViewedImage(null), [])
+
+  // The server enforces this too; this only decides whether to show the button
+  const isAdmin = user?.publicMetadata?.role === "admin"
+  const canDelete = (image: ImageRecord) => !!user && (isAdmin || image.user?.clerkId === user.id)
+
+  const handleDelete = async (image: ImageRecord) => {
+    if (!confirm("Delete this photo? This can't be undone.")) return
+    try {
+      await deleteImage({ id: image.id, toiletId }).unwrap()
+      setViewedImage(null)
+      toast.success("Photo deleted")
+    } catch (error) {
+      toast.error("Couldn't delete photo", { description: getErrorMessage(error, "Please try again.") })
+    }
+  }
 
   const handleUploadClick = () => {
     if (!user) {
@@ -116,7 +141,13 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
       ) : images && images.length > 0 ? (
         <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
           {images.map((img) => (
-            <div key={img.id} className="relative aspect-square w-48 shrink-0 snap-center overflow-hidden rounded-xl border bg-muted">
+            <button
+              key={img.id}
+              type="button"
+              onClick={() => setViewedImage(img)}
+              aria-label={img.user?.username ? `View photo by ${img.user.username}` : "View photo"}
+              className="relative aspect-square w-48 shrink-0 snap-center overflow-hidden rounded-xl border bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black"
+            >
               {/* Using standard img tag for external URLs without configured Next.js domains */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
@@ -130,7 +161,7 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
                   <p className="text-[10px] text-white font-medium truncate">By {img.user.username}</p>
                 </div>
               )}
-            </div>
+            </button>
           ))}
         </div>
       ) : (
@@ -139,6 +170,15 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
           <p className="text-sm font-medium text-slate-900">No photos yet</p>
           <p className="text-xs text-slate-500 max-w-[200px] mt-1">Be the first to upload a photo of this toilet.</p>
         </div>
+      )}
+      {viewedImage && (
+        <ImageLightbox
+          image={viewedImage}
+          canDelete={canDelete(viewedImage)}
+          isDeleting={isDeleting}
+          onDelete={() => handleDelete(viewedImage)}
+          onClose={closeViewer}
+        />
       )}
     </div>
   )
