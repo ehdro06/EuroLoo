@@ -49,7 +49,10 @@ export function ImageLightbox({ image, canDelete, isDeleting, onDelete, onClose 
 
       <div className="relative flex flex-1 flex-col" style={swipe.style}>
         {/* Toolbar */}
-        <div className="flex items-center gap-3 px-4 pb-2 pt-3" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="flex items-center gap-3 px-4 pb-3 pt-[max(1.5rem,env(safe-area-inset-top))]"
+          onClick={(e) => e.stopPropagation()}
+        >
           <div className="min-w-0 flex-1 text-white">
             <p className="truncate text-sm font-medium">{image.user?.username ? image.user.username : "Photo"}</p>
             <p className="text-xs text-white/60">{uploadedOn}</p>
