@@ -118,6 +118,7 @@ Project settings: Root Directory `client`, framework Next.js. Environment variab
 | "Failed to load toilets" but Cloud Run shows 200s | The site's origin isn't in `CORS_ORIGINS` |
 | Cloud Build fails at `migrate` | Migration secret holds the pooled URL, or Cloud Build can't read the secret |
 | New Cloud Run instances fail to start | `euroloo-database-url` deleted or not readable by the service account |
+| "Authentication is not configured on the server" (500) | `CLERK_SECRET_KEY` missing on Cloud Run; the API also logs `Missing environment variables` at startup |
 | Photo upload: "Failed while requesting an upload URL" | `GCS_BUCKET_NAME` unset, or missing Token Creator role |
 | Photo upload: "Failed while uploading to storage" | Bucket CORS doesn't include the site's origin |
 | Photo upload: "Failed while saving the photo" | Missing `storage.objectAdmin` on the bucket, or the file is over 5MB / not JPEG, PNG or WebP |
