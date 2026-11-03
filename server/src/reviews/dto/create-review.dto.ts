@@ -1,4 +1,4 @@
-import { IsInt, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
+import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min, MinLength } from 'class-validator';
 
 export class CreateReviewDto {
   @IsString()
@@ -13,4 +13,13 @@ export class CreateReviewDto {
   @Min(1)
   @Max(5)
   rating!: number;
+
+  // Omitted when the reviewer isn't sure
+  @IsOptional()
+  @IsBoolean()
+  isWheelchairAccessible?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  hasChangingTable?: boolean;
 }

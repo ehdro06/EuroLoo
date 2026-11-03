@@ -13,6 +13,7 @@ export interface Toilet {
   openingHours?: string;
   wheelchair?: string;
   isAccessible: boolean;
+  hasChangingTable?: boolean;
   isVerified?: boolean;
   reportCount?: number;
   verifyCount?: number;
@@ -38,7 +39,7 @@ export interface ImageRecord {
   id: number;
   url: string;
   createdAt: string;
-  user?: { username: string | null };
+  user?: { username: string | null; clerkId: string } | null;
 }
 
 export interface Review {
@@ -48,6 +49,9 @@ export interface Review {
   createdAt: string;
   toiletId: number;
   author?: Author;
+  // Reviewer's observations; null when they didn't say
+  isWheelchairAccessible?: boolean | null;
+  hasChangingTable?: boolean | null;
 }
 
 export interface AddToiletRequest {
@@ -72,6 +76,8 @@ interface AddReviewRequest {
   externalId: string;
   content: string;
   rating: number;
+  isWheelchairAccessible?: boolean;
+  hasChangingTable?: boolean;
 }
 
 export const api = createApi({
@@ -153,6 +159,13 @@ export const api = createApi({
         body,
       }),
     }),
+    deleteImage: builder.mutation<{ success: boolean }, { id: number; toiletId: number }>({
+      query: ({ id }) => ({
+        url: `/images/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (result, error, { toiletId }) => [{ type: 'Images', id: toiletId }],
+    }),
     confirmImageUpload: builder.mutation<ImageRecord, { toiletId: number; fileUrl: string }>({
       query: (body) => ({
         url: '/images/confirm',
@@ -211,5 +224,6 @@ export const {
     useUpdateUserRoleMutation,
     useGetToiletImagesQuery,
     useGetPresignedUrlMutation,
-    useConfirmImageUploadMutation
+    useConfirmImageUploadMutation,
+    useDeleteImageMutation
 } = api;

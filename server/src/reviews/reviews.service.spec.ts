@@ -34,6 +34,19 @@ describe('ReviewsService', () => {
     );
   });
 
+  it('stores the reviewer’s accessibility and changing-table answers', async () => {
+    await service.create(
+      { externalId: 'node/1', content: '', rating: 4, isWheelchairAccessible: true, hasChangingTable: false },
+      'author',
+    );
+
+    expect(prisma.review.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({ isWheelchairAccessible: true, hasChangingTable: false }),
+      }),
+    );
+  });
+
   describe('update / remove', () => {
     beforeEach(() => {
       prisma.review.findUnique.mockResolvedValue({ author: { clerkId: 'author' } });

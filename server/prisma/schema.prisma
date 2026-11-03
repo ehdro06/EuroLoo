@@ -63,6 +63,10 @@ model Review {
   toilet    Toilet   @relation(fields: [toiletId], references: [id], onDelete: Cascade)
   authorId  Int?
   author    User?    @relation(fields: [authorId], references: [id])
+
+  // What the reviewer observed; null means they didn't say
+  isWheelchairAccessible Boolean?
+  hasChangingTable       Boolean?
 }
 
 enum Role {

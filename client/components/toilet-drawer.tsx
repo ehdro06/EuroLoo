@@ -1,8 +1,9 @@
 "use client"
 
-import { MapPin, Euro, Clock, Accessibility, X, MessageSquarePlus, Star, AlertTriangle, CheckCircle } from "lucide-react"
+import { MapPin, Euro, Clock, Accessibility, X, MessageSquarePlus, Star, AlertTriangle, CheckCircle, Baby } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { Toilet } from "@/hooks/use-toilets"
+import type { Review } from "@/lib/services/api"
 import { AddReviewForm } from "./add-review-form"
 import { useState } from "react"
 import { Separator } from "@/components/ui/separator"
@@ -14,6 +15,19 @@ import { ImageGallery } from "./image-gallery"
 import { getErrorMessage } from "@/lib/errors"
 
 const VOTED_STORAGE_KEY = "votedToilets"
+
+// Most recent answer from visitors (reviews are sorted newest first)
+function latestVisitorAnswer(reviews: Review[] | undefined, key: "isWheelchairAccessible" | "hasChangingTable") {
+  const answer = reviews?.find((review) => review[key] != null)?.[key]
+  return answer ?? null
+}
+
+function describeFeature(visitorAnswer: boolean | null, fromMapData: boolean, fallback: string) {
+  if (visitorAnswer === true) return { text: "Yes (reported by visitors)", positive: true }
+  if (visitorAnswer === false) return { text: "No (reported by visitors)", positive: false }
+  if (fromMapData) return { text: "Yes", positive: true }
+  return { text: fallback, positive: false }
+}
 
 function readVotedToilets(): number[] {
   try {
@@ -127,6 +141,17 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
 
   if (!open || !toilet) return null
 
+  const accessibility = describeFeature(
+    latestVisitorAnswer(reviews, "isWheelchairAccessible"),
+    toilet.isAccessible,
+    toilet.wheelchair ?? "Unknown",
+  )
+  const changingTable = describeFeature(
+    latestVisitorAnswer(reviews, "hasChangingTable"),
+    toilet.hasChangingTable ?? false,
+    "Unknown",
+  )
+
   const showPollBox = !isVerified && !hasVotedLocally;
 
   return (
@@ -238,9 +263,20 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
             <div className="flex items-center gap-3">
               <Accessibility className="h-5 w-5 text-black/60" aria-hidden="true" />
               <div>
-                <p className="text-sm font-medium text-black">Accessibility</p>
-                <p className={`text-sm font-semibold ${toilet.isAccessible ? "text-green-600" : "text-black/60"}`}>
-                  {toilet.isAccessible ? "Wheelchair Accessible" : toilet.wheelchair ? toilet.wheelchair : "Unknown"}
+                <p className="text-sm font-medium text-black">Wheelchair accessible</p>
+                <p className={`text-sm font-semibold ${accessibility.positive ? "text-green-600" : "text-black/60"}`}>
+                  {accessibility.text}
+                </p>
+              </div>
+            </div>
+
+            {/* Baby changing table */}
+            <div className="flex items-center gap-3">
+              <Baby className="h-5 w-5 text-black/60" aria-hidden="true" />
+              <div>
+                <p className="text-sm font-medium text-black">Baby changing table</p>
+                <p className={`text-sm font-semibold ${changingTable.positive ? "text-green-600" : "text-black/60"}`}>
+                  {changingTable.text}
                 </p>
               </div>
             </div>
@@ -316,6 +352,22 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
                       <div className="text-sm text-slate-700 whitespace-pre-wrap">
                         {review.content}
                       </div>
+                      {(review.isWheelchairAccessible != null || review.hasChangingTable != null) && (
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {review.isWheelchairAccessible != null && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                              <Accessibility className="h-3 w-3" aria-hidden="true" />
+                              {review.isWheelchairAccessible ? "Wheelchair accessible" : "Not wheelchair accessible"}
+                            </span>
+                          )}
+                          {review.hasChangingTable != null && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                              <Baby className="h-3 w-3" aria-hidden="true" />
+                              {review.hasChangingTable ? "Changing table" : "No changing table"}
+                            </span>
+                          )}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
