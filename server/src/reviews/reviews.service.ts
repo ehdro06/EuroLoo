@@ -21,7 +21,7 @@ export class ReviewsService {
   ) {}
 
   async create(createReviewDto: CreateReviewDto, clerkId: string) {
-    const { externalId, content, rating } = createReviewDto;
+    const { externalId, content, rating, isWheelchairAccessible, hasChangingTable } = createReviewDto;
     const author = await this.usersService.ensureUser(clerkId);
 
     try {
@@ -29,6 +29,8 @@ export class ReviewsService {
         data: {
           content,
           rating,
+          isWheelchairAccessible,
+          hasChangingTable,
           toilet: { connect: { externalId } },
           author: { connect: { id: author.id } },
         },

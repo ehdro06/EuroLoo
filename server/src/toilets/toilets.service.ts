@@ -30,6 +30,7 @@ export interface ToiletRow {
   openingHours: string | null;
   wheelchair: string | null;
   isAccessible: boolean;
+  hasChangingTable: boolean;
   isUserCreated: boolean;
   isVerified: boolean;
   reportCount: number;
@@ -53,7 +54,7 @@ export class ToiletsService {
       SELECT
         id, "externalId", lat, lon, name, operator, fee, "isFree", "isPaid",
         "openingHours", wheelchair, "isAccessible", "isUserCreated", "createdAt", "updatedAt",
-        "isVerified", "reportCount", "verifyCount"
+        "isVerified", "reportCount", "verifyCount", "hasChangingTable"
       FROM "Toilet"
       WHERE "isHidden" = false
         AND ST_DWithin(
@@ -164,7 +165,7 @@ export class ToiletsService {
     return this.prisma.image.findMany({
       where: { toiletId },
       orderBy: { createdAt: 'desc' },
-      select: { id: true, url: true, createdAt: true, user: { select: { username: true } } },
+      select: { id: true, url: true, createdAt: true, user: { select: { username: true, clerkId: true } } },
     });
   }
 

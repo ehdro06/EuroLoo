@@ -17,6 +17,37 @@ import {
 import { useAddReviewMutation } from "@/lib/services/api"
 import { toast } from "sonner" // Assuming sonner is installed as seen in components list
 
+// undefined = "Not sure", which is sent as omitted
+type YesNo = boolean | undefined
+
+const YES_NO_OPTIONS: { label: string; value: YesNo }[] = [
+  { label: "Yes", value: true },
+  { label: "No", value: false },
+  { label: "Not sure", value: undefined },
+]
+
+function YesNoQuestion({ label, value, onChange }: { label: string; value: YesNo; onChange: (value: YesNo) => void }) {
+  return (
+    <fieldset className="space-y-2">
+      <legend className="text-sm font-medium leading-none">{label}</legend>
+      <div className="flex gap-2">
+        {YES_NO_OPTIONS.map((option) => (
+          <Button
+            key={option.label}
+            type="button"
+            size="sm"
+            variant={value === option.value ? "default" : "outline"}
+            aria-pressed={value === option.value}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </Button>
+        ))}
+      </div>
+    </fieldset>
+  )
+}
+
 interface AddReviewFormProps {
   externalId: string
   onSuccess?: () => void
@@ -28,6 +59,8 @@ export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
   const [isFree, setIsFree] = useState(true)
   const [fee, setFee] = useState("")
   const [comment, setComment] = useState("")
+  const [isWheelchairAccessible, setIsWheelchairAccessible] = useState<YesNo>(undefined)
+  const [hasChangingTable, setHasChangingTable] = useState<YesNo>(undefined)
   
   const [addReview, { isLoading }] = useAddReviewMutation()
 
@@ -65,6 +98,8 @@ export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
         externalId,
         rating,
         content: finalContent.trim(),
+        isWheelchairAccessible,
+        hasChangingTable,
       }).unwrap()
 
       toast.success("Review submitted!")
@@ -73,6 +108,8 @@ export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
       setCleanliness("3")
       setIsFree(true)
       setFee("")
+      setIsWheelchairAccessible(undefined)
+      setHasChangingTable(undefined)
       onSuccess?.()
     } catch (error) {
       console.error("Failed to submit review:", error)
@@ -140,6 +177,18 @@ export function AddReviewForm({ externalId, onSuccess }: AddReviewFormProps) {
           </div>
         )}
       </div>
+
+      <YesNoQuestion
+        label="Wheelchair accessible?"
+        value={isWheelchairAccessible}
+        onChange={setIsWheelchairAccessible}
+      />
+
+      <YesNoQuestion
+        label="Baby changing table?"
+        value={hasChangingTable}
+        onChange={setHasChangingTable}
+      />
 
       <div className="space-y-2">
         <Label htmlFor="comment">Comment</Label>

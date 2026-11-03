@@ -279,7 +279,7 @@ export function MapContainer({
         )}
       </Map>
       {/* Zoom control: bottom-right vertical scrollbar with +/- buttons and draggable thumb */}
-      <div className="absolute bottom-6 right-4 z-[1100] flex origin-bottom-right scale-75 flex-col items-center gap-2 sm:bottom-4 sm:scale-100">
+      <div className="absolute bottom-6 right-4 z-[1000] flex origin-bottom-right scale-75 flex-col items-center gap-2 sm:bottom-4 sm:scale-100">
         <button
            aria-label={followMe ? "Following" : "Follow Me"}
            onClick={onUserLocationRequest}
