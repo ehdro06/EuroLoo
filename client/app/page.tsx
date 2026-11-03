@@ -17,9 +17,11 @@ import Image from "next/image"
 type CompassOrientationEvent = DeviceOrientationEvent & { webkitCompassHeading?: number }
 type IOSDeviceOrientationEvent = { requestPermission?: () => Promise<'granted' | 'denied'> }
 
-const DEFAULT_VIEW: MapView = { center: [52.52, 13.405], zoom: 13, toiletId: null }
+const DEFAULT_VIEW: MapView = { center: [52.52, 13.405], zoom: 13, toiletId: null, fromUrl: false }
+// Zoom used when centering on the user's location the first time
+const USER_LOCATION_ZOOM = 15
 
-type MapView = { center: [number, number]; zoom: number; toiletId: number | null }
+type MapView = { center: [number, number]; zoom: number; toiletId: number | null; fromUrl: boolean }
 
 // The map position and the open toilet live in the URL (?lat=&lng=&z=&toilet=)
 // so they survive a reload, e.g. the redirect back from signing in.
@@ -34,6 +36,7 @@ function parseMapView(params: URLSearchParams): MapView {
     center: hasCenter ? [lat, lng] : DEFAULT_VIEW.center,
     zoom: params.has("z") && zoom >= 3 && zoom <= 19 ? zoom : DEFAULT_VIEW.zoom,
     toiletId: Number.isInteger(toiletId) && toiletId > 0 ? toiletId : null,
+    fromUrl: hasCenter,
   }
 }
 
@@ -110,6 +113,11 @@ function HomePage() {
   // Device orientation state
   const [orientationGranted, setOrientationGranted] = useState(false)
 
+  // Start in Berlin, then jump to the user's location once they grant permission.
+  // Skipped for shared/restored links (URL has a position) and once the user
+  // has moved the map themselves, so we never yank the map away from them.
+  const shouldAutoCenterRef = useRef(!initialView.fromUrl)
+
   // Initial Geolocation
   useEffect(() => {
     let watchId: number | null = null;
@@ -123,7 +131,14 @@ function HomePage() {
              setUserHeading(pos.coords.heading)
            }
            
-           if (followMeRef.current) {
+           if (shouldAutoCenterRef.current) {
+             shouldAutoCenterRef.current = false
+             setMapCenter(coords)
+             setQueryCenter(coords)
+             lastQueryCenterRef.current = coords
+             setZoom(USER_LOCATION_ZOOM)
+             setQueryZoom(USER_LOCATION_ZOOM)
+           } else if (followMeRef.current) {
              setMapCenter(coords)
              setQueryCenter(coords)
            }
@@ -369,7 +384,13 @@ function HomePage() {
       </header>
 
       {/* Main Content */}
-      <main className="relative flex-1 min-h-0">
+      <main
+        className="relative flex-1 min-h-0"
+        onPointerDownCapture={() => {
+          // The user is interacting with the map; don't auto-center from now on
+          shouldAutoCenterRef.current = false
+        }}
+      >
         {isAddingToilet && (
             <div className="absolute top-4 left-1/2 z-[1000] -translate-x-1/2 rounded-full border border-black/10 bg-white px-4 py-2 shadow-lg animate-in fade-in slide-in-from-top-4">
                 <p className="text-sm font-medium text-black">Tap within the circle to add toilet</p>

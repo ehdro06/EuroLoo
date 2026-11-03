@@ -78,39 +78,37 @@ export function MapContainer({
   // But we initialized transientCenter with `center` which works for prop-based start.
   // If `center` is undefined, we use `computedCenter` as `defaultCenter`.
 
-  // 1. Handle External Center Updates (e.g. initial load, search result)
+  // Handle external center/zoom updates (initial location, Follow Me, links).
+  // Both are handled in one effect: when center and zoom change together they must
+  // become a single animation, otherwise the zoom update cancels the pan mid-way.
   useEffect(() => {
-    if (!center) return
-    
-    // Check if this center update is actually just the loopback from our own movement
-    const [lat1, lon1] = lastReportedCenter.current
-    const [lat2, lon2] = center
-    const dist = Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2))
+    if (center) {
+      // Ignore the loopback of our own movement (center is synced from onBoundsChanged)
+      const [lat1, lon1] = lastReportedCenter.current
+      const [lat2, lon2] = center
+      const dist = Math.sqrt(Math.pow(lat2 - lat1, 2) + Math.pow(lon2 - lon1, 2))
 
-    // Only force the map to move if the new center is significantly different (> ~1.1 meters)
-    if (dist > 0.00001) {
-       // Calculate dynamic animation duration based on distance for a normalized speed
-       // 1 degree of lat/lon is roughly 111km. 
-       // We set a base of 300ms, and add 150ms per degree of distance, capped at 2500ms.
-       const dynamicDuration = Math.min(2500, Math.max(300, dist * 150))
-       
-       if (mapRef.current?.setCenterZoomTarget) {
-           mapRef.current.setCenterZoomTarget(center, zoom ?? lastReportedZoom.current, false, null, dynamicDuration)
-       } else {
-           setTransientCenter(center)
-       }
-    }
-  }, [center])
+      // Only force the map to move if the new center is significantly different (> ~1.1 meters)
+      if (dist > 0.00001) {
+        // Normalized speed: 300ms base, +150ms per degree of distance, capped at 2500ms
+        const dynamicDuration = Math.min(2500, Math.max(300, dist * 150))
 
-  // 2. Handle External Zoom Updates (if any, though usually we control zoom locally)
-  useEffect(() => {
-    if (zoom === undefined) return
-    if (Math.abs(zoom - lastReportedZoom.current) > 0.1) {
-       // Only snap if significant difference
-       setTransientZoom(zoom)
-       setDisplayZoom(zoom)
+        if (mapRef.current?.setCenterZoomTarget) {
+          // Moves and zooms in one animation
+          mapRef.current.setCenterZoomTarget(center, zoom ?? lastReportedZoom.current, false, null, dynamicDuration)
+        } else {
+          setTransientCenter(center)
+        }
+        return
+      }
     }
-  }, [zoom])
+
+    // Zoom-only change (e.g. the zoom slider): snap if significantly different
+    if (zoom !== undefined && Math.abs(zoom - lastReportedZoom.current) > 0.1) {
+      setTransientZoom(zoom)
+      setDisplayZoom(zoom)
+    }
+  }, [center, zoom])
 
   useEffect(() => {
     if (!loading) return
