@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { Filter, ShieldCheck, Plus, LocateFixed, Loader2 } from "lucide-react"
+import { ShieldCheck, Plus, LocateFixed, Loader2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
@@ -11,6 +11,10 @@ import { AddToiletDialog } from "@/components/add-toilet-dialog"
 import { toast } from "sonner"
 import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import { useSignInHere } from "@/hooks/use-sign-in-here"
+import { PlaceSearch } from "@/components/place-search"
+import { MapFilters } from "@/components/map-filters"
+import { applyToiletFilters, countActiveFilters, NO_FILTERS, type ToiletFilters } from "@/lib/toilet-filters"
+import type { Place } from "@/lib/geocoding"
 import Image from "next/image"
 
 // iOS Safari exposes the compass heading and a permission prompt on orientation events.
@@ -54,7 +58,7 @@ function HomePage() {
   const { user } = useUser();
   const searchParams = useSearchParams()
   const [initialView] = useState(() => parseMapView(searchParams))
-  const [showFreeOnly, setShowFreeOnly] = useState(false)
+  const [filters, setFilters] = useState<ToiletFilters>(NO_FILTERS)
   const [selectedToilet, setSelectedToilet] = useState<Toilet | null>(null)
   // Toilet to reopen once the map data has loaded (from the URL)
   const [restoreToiletId, setRestoreToiletId] = useState<number | null>(initialView.toiletId)
@@ -295,7 +299,22 @@ function HomePage() {
     }, DEBOUNCE_MS)
   }
 
-  const filteredToilets = showFreeOnly ? toilets.filter((t) => t.isFree) : toilets
+  const filteredToilets = applyToiletFilters(toilets, filters)
+  const hasActiveFilters = countActiveFilters(filters) > 0
+
+  const goToPlace = (place: Place) => {
+    // An explicit search wins over auto-centering and Follow Me
+    shouldAutoCenterRef.current = false
+    setFollowMe(false)
+    followMeRef.current = false
+    const coords: [number, number] = [place.lat, place.lon]
+    pendingCenterRef.current = null
+    lastQueryCenterRef.current = coords
+    setMapCenter(coords)
+    setQueryCenter(coords)
+    setZoom(place.zoom)
+    setQueryZoom(place.zoom)
+  }
 
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
@@ -369,23 +388,18 @@ function HomePage() {
               )}
               <span className="hidden sm:inline">{isLocating ? "Locating..." : followMe ? "Following" : "Follow Me"}</span>
             </Button>
-            <Button
-              variant={showFreeOnly ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowFreeOnly(!showFreeOnly)}
-              aria-label={showFreeOnly ? "Show all toilets" : "Show free toilets only"}
-              className="gap-2"
-            >
-              <Filter className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">{showFreeOnly ? "Free Only" : "All"}</span>
-            </Button>
           </div>
+        </div>
+        <div className="mx-auto max-w-7xl space-y-2 px-4 pb-3 sm:px-6">
+          <PlaceSearch near={mapCenter} onSelect={goToPlace} />
+          <MapFilters filters={filters} onChange={setFilters} />
         </div>
       </header>
 
       {/* Main Content */}
       <main
-        className="relative flex-1 min-h-0"
+        // z-0 keeps the map's overlays below the header's search results
+        className="relative z-0 flex-1 min-h-0"
         onPointerDownCapture={() => {
           // The user is interacting with the map; don't auto-center from now on
           shouldAutoCenterRef.current = false
@@ -408,8 +422,17 @@ function HomePage() {
 
         {!loading && !error && filteredToilets.length === 0 && (
           <div className="absolute left-1/2 top-16 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg">
-            <p className="text-sm font-medium text-black">No toilets found in this area yet.</p>
-            <p className="mt-1 text-xs text-black/70">Move the map or zoom out, then try again.</p>
+            {hasActiveFilters && toilets.length > 0 ? (
+              <>
+                <p className="text-sm font-medium text-black">No toilets here match your filters.</p>
+                <p className="mt-1 text-xs text-black/70">Remove a filter or move the map.</p>
+              </>
+            ) : (
+              <>
+                <p className="text-sm font-medium text-black">No toilets found in this area yet.</p>
+                <p className="mt-1 text-xs text-black/70">Move the map or zoom out, then try again.</p>
+              </>
+            )}
           </div>
         )}
 

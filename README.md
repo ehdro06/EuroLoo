@@ -38,6 +38,8 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 ## Features
 
 - **Open data map discovery** via OpenStreetMap
+- **Place search** (cities, stations, addresses) via Photon, an OpenStreetMap geocoder
+- **Filters** for free, wheelchair-accessible, baby-changing and verified toilets
 - **Community contributions** for add/report/verify flows
 - **Privacy-first UX** with no invasive tracking model
 - **Auth-protected actions** using Clerk + backend guards
