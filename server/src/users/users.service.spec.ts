@@ -47,3 +47,37 @@ describe('UsersService.ensureUser', () => {
     await expect(service.ensureUser('u1')).resolves.toMatchObject({ id: 1 });
   });
 });
+
+describe('UsersService.deleteAccountData', () => {
+  it('deletes votes, reviews, photos and the user, keeping added toilets without a contributor', async () => {
+    const calls: string[] = [];
+    const record = (name: string) => jest.fn().mockImplementation(() => calls.push(name));
+    const prisma = {
+      user: { findUnique: jest.fn().mockResolvedValue({ id: 7 }), delete: record('user.delete') },
+      image: {
+        findMany: jest.fn().mockResolvedValue([{ url: 'https://storage.googleapis.com/b/a.jpg' }]),
+        deleteMany: record('image.deleteMany'),
+      },
+      vote: { deleteMany: record('vote.deleteMany') },
+      review: { deleteMany: record('review.deleteMany') },
+      toilet: { updateMany: record('toilet.updateMany') },
+      $transaction: jest.fn().mockResolvedValue([]),
+    };
+    const service = new UsersService(prisma as unknown as PrismaService, { get: () => 'sk' } as unknown as ConfigService);
+
+    await expect(service.deleteAccountData('u1')).resolves.toEqual({
+      imageUrls: ['https://storage.googleapis.com/b/a.jpg'],
+    });
+    expect(calls).toEqual(['vote.deleteMany', 'review.deleteMany', 'image.deleteMany', 'toilet.updateMany', 'user.delete']);
+    expect(prisma.toilet.updateMany).toHaveBeenCalledWith({ where: { contributorId: 7 }, data: { contributorId: null } });
+    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('does nothing for an unknown user', async () => {
+    const prisma = { user: { findUnique: jest.fn().mockResolvedValue(null) }, $transaction: jest.fn() };
+    const service = new UsersService(prisma as unknown as PrismaService, { get: () => 'sk' } as unknown as ConfigService);
+
+    await expect(service.deleteAccountData('ghost')).resolves.toEqual({ imageUrls: [] });
+    expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+});

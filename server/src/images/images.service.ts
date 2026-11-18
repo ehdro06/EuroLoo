@@ -104,6 +104,23 @@ export class ImagesService {
     return { success: true };
   }
 
+  // Best-effort removal of stored files, e.g. after an account is deleted
+  async deleteStoredFiles(urls: string[]): Promise<void> {
+    const bucket = this.storage.bucket(this.bucketName);
+    await Promise.all(
+      urls
+        .filter((url) => url.startsWith(this.publicUrlPrefix))
+        .map(async (url) => {
+          const objectName = url.slice(this.publicUrlPrefix.length);
+          try {
+            await bucket.file(objectName).delete({ ignoreNotFound: true });
+          } catch (error) {
+            this.logger.warn(`Failed to delete ${objectName}: ${error instanceof Error ? error.message : error}`);
+          }
+        }),
+    );
+  }
+
   // Signed URLs can't cap the upload size, so check what actually landed in the bucket
   private async assertValidUpload(objectName: string) {
     const file = this.storage.bucket(this.bucketName).file(objectName);

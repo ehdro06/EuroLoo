@@ -1,4 +1,8 @@
-import { Controller, Post, Req, Res, Headers, RawBodyRequest, UseGuards } from '@nestjs/common';
+import { Controller, Post, Req, Res, Headers, RawBodyRequest, UseGuards, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
+import { UsersService } from '../users/users.service.js';
+import { ImagesService } from '../images/images.service.js';
 import { Request, Response } from 'express';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { Webhook } from 'svix';
@@ -23,6 +27,9 @@ export class WebhooksController {
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly usersService: UsersService,
+    private readonly imagesService: ImagesService,
+    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
   ) {}
 
   @Post('clerk')
@@ -102,9 +109,11 @@ export class WebhooksController {
         },
       });
     } else if (eventType === 'user.deleted') {
-      await this.prisma.user.delete({
-        where: { clerkId: id },
-      }).catch(() => undefined);
+      // The user deleted their account in Clerk: remove their data here too
+      const { imageUrls } = await this.usersService.deleteAccountData(id);
+      await this.imagesService.deleteStoredFiles(imageUrls);
+      // Their reviews fed the map's accessibility data
+      await this.cacheManager.clear();
     }
 
     return res.status(200).json({ success: true });

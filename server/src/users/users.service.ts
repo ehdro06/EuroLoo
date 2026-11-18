@@ -43,6 +43,26 @@ export class UsersService {
     }
   }
 
+  // Removes everything personal about a user. Toilets they added stay on the map,
+  // without their name. Vote counters on toilets are kept (they're aggregates).
+  // Returns the photo URLs so the caller can delete the stored files.
+  async deleteAccountData(clerkId: string): Promise<{ imageUrls: string[] }> {
+    const user = await this.prisma.user.findUnique({ where: { clerkId }, select: { id: true } });
+    if (!user) return { imageUrls: [] };
+
+    const images = await this.prisma.image.findMany({ where: { userId: user.id }, select: { url: true } });
+    await this.prisma.$transaction([
+      this.prisma.vote.deleteMany({ where: { userId: user.id } }),
+      this.prisma.review.deleteMany({ where: { authorId: user.id } }),
+      this.prisma.image.deleteMany({ where: { userId: user.id } }),
+      this.prisma.toilet.updateMany({ where: { contributorId: user.id }, data: { contributorId: null } }),
+      this.prisma.user.delete({ where: { id: user.id } }),
+    ]);
+
+    this.logger.log(`Deleted account data for ${clerkId} (${images.length} photos)`);
+    return { imageUrls: images.map((image) => image.url) };
+  }
+
   async findByClerkId(clerkId: string) {
     return this.prisma.user.findUnique({
       where: { clerkId },

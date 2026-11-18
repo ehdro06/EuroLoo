@@ -120,8 +120,10 @@ export default function PrivacyPage() {
 
         <Section title="How long we keep data">
           <p>
-            Account data and contributions are kept until you delete them or ask us to. You can delete your own photos
-            in the app. Server logs are kept for a limited period by our hosting providers.
+            Account data and contributions are kept until you delete them. You can delete single photos in the app, or
+            your whole account from the account menu (your profile picture, then Manage account, then Delete account).
+            Deleting your account removes your reviews, photos and votes; toilets you added stay on the map without
+            your name. Server logs are kept for a limited period by our hosting providers.
           </p>
         </Section>
 
