@@ -251,8 +251,8 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
                   {toilet.isFree
                     ? "Free"
                     : toilet.isPaid
-                      ? toilet.fee === "yes"
-                        ? "Paid (Sanifair)"
+                      ? toilet.fee === "yes" || !toilet.fee
+                        ? "Paid"
                         : `Paid (${toilet.fee})`
                       : "Unknown"}
                 </p>

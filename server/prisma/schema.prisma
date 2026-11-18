@@ -74,6 +74,8 @@ model Review {
   // What the reviewer observed; null means they didn't say
   isWheelchairAccessible Boolean?
   hasChangingTable       Boolean?
+
+  @@index([toiletId])
 }
 
 enum Role {

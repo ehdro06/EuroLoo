@@ -9,5 +9,6 @@ import { UsersModule } from '../users/users.module.js';
   imports: [PrismaModule, ConfigModule, UsersModule],
   controllers: [ImagesController],
   providers: [ImagesService],
+  exports: [ImagesService],
 })
 export class ImagesModule {}

@@ -8,20 +8,15 @@ A privacy-first, community-driven public toilet finder for Europe, built as a fu
 
 ## Screenshots
 
-<!--
-  TODO: add screenshots and a short GIF (store them in docs/images/):
-  - docs/images/map.png          map with toilet pins and filter chips (phone width)
-  - docs/images/details.png      toilet details sheet with accessibility info and photos
-  - docs/images/search.png       place search results
-  - docs/images/demo.gif         ~10s: search a city, open a toilet, swipe the sheet away
-  Then replace this comment with, for example:
-  <p>
-    <img src="docs/images/map.png" width="260" alt="Map with toilet pins" />
-    <img src="docs/images/details.png" width="260" alt="Toilet details" />
-    <img src="docs/images/search.png" width="260" alt="Place search" />
-  </p>
--->
-_Screenshots coming soon. In the meantime, try the [live app](https://euroloo.vercel.app) on your phone._
+<p>
+  <img src="docs/images/map.jpg" width="250" alt="Map of central Berlin with toilet pins and filter chips" />
+  <img src="docs/images/details.png" width="250" alt="Toilet details with fee, opening hours and accessibility" />
+  <img src="docs/images/search.jpg" width="250" alt="Place search suggesting Alexanderplatz, Berlin" />
+</p>
+
+<p>
+  <img src="docs/images/demo.gif" width="250" alt="Searching for Alexanderplatz, opening a toilet, swiping the sheet away and filtering by wheelchair access" />
+</p>
 
 ## Why
 
