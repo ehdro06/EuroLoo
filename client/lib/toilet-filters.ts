@@ -20,7 +20,8 @@ export function countActiveFilters(filters: ToiletFilters): number {
   return Object.values(filters).filter(Boolean).length
 }
 
-// Each active filter must match (AND). Uses the map data (OpenStreetMap plus votes).
+// Each active filter must match (AND). Uses the map data: OpenStreetMap, votes, and the
+// latest visitor answers from reviews (merged by the API).
 export function applyToiletFilters(toilets: Toilet[], filters: ToiletFilters): Toilet[] {
   return toilets.filter(
     (t) =>

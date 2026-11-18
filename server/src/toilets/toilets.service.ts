@@ -49,17 +49,31 @@ export class ToiletsService {
   async findInRadius(lat: number, lng: number, radiusMeters?: number): Promise<ToiletRow[]> {
     const radius = radiusMeters ?? DEFAULT_SEARCH_RADIUS_METERS;
 
-    // ST_DWithin on geography uses the spatial index
+    // ST_DWithin on geography uses the spatial index.
+    // isAccessible and hasChangingTable prefer the most recent visitor answer from
+    // reviews over the OpenStreetMap value, matching what the details sheet shows.
     return this.prisma.$queryRaw<ToiletRow[]>`
       SELECT
-        id, "externalId", lat, lon, name, operator, fee, "isFree", "isPaid",
-        "openingHours", wheelchair, "isAccessible", "isUserCreated", "createdAt", "updatedAt",
-        "isVerified", "reportCount", "verifyCount", "hasChangingTable"
-      FROM "Toilet"
-      WHERE "isHidden" = false
-        AND "osmDeletedAt" IS NULL
+        t.id, t."externalId", t.lat, t.lon, t.name, t.operator, t.fee, t."isFree", t."isPaid",
+        t."openingHours", t.wheelchair, t."isUserCreated", t."createdAt", t."updatedAt",
+        t."isVerified", t."reportCount", t."verifyCount",
+        COALESCE(wheelchair_answer.value, t."isAccessible") AS "isAccessible",
+        COALESCE(changing_table_answer.value, t."hasChangingTable") AS "hasChangingTable"
+      FROM "Toilet" t
+      LEFT JOIN LATERAL (
+        SELECT r."isWheelchairAccessible" AS value FROM "Review" r
+        WHERE r."toiletId" = t.id AND r."isWheelchairAccessible" IS NOT NULL
+        ORDER BY r."createdAt" DESC, r.id DESC LIMIT 1
+      ) wheelchair_answer ON true
+      LEFT JOIN LATERAL (
+        SELECT r."hasChangingTable" AS value FROM "Review" r
+        WHERE r."toiletId" = t.id AND r."hasChangingTable" IS NOT NULL
+        ORDER BY r."createdAt" DESC, r.id DESC LIMIT 1
+      ) changing_table_answer ON true
+      WHERE t."isHidden" = false
+        AND t."osmDeletedAt" IS NULL
         AND ST_DWithin(
-        location::geography,
+        t.location::geography,
         ST_SetSRID(ST_MakePoint(${lng}, ${lat}), 4326)::geography,
         ${radius}
       )

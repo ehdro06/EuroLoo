@@ -1,4 +1,6 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ParseIntPipe } from '@nestjs/common';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ParseIntPipe, Inject } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { ReviewsService } from './reviews.service.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { UpdateReviewDto } from './dto/update-review.dto.js';
@@ -8,12 +10,21 @@ import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 
 @Controller('reviews')
 export class ReviewsController {
-  constructor(private readonly reviewsService: ReviewsService) {}
+  constructor(
+    private readonly reviewsService: ReviewsService,
+    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+  ) {}
+
+  // Review answers feed the map's accessibility data, so cached map results go stale
+  private async afterWrite<T>(result: T): Promise<T> {
+    await this.cacheManager.clear();
+    return result;
+  }
 
   @Post()
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
-  create(@Body() createReviewDto: CreateReviewDto, @Req() req: AuthenticatedRequest) {
-    return this.reviewsService.create(createReviewDto, req.user.id);
+  async create(@Body() createReviewDto: CreateReviewDto, @Req() req: AuthenticatedRequest) {
+    return this.afterWrite(await this.reviewsService.create(createReviewDto, req.user.id));
   }
 
   @Get()
@@ -33,17 +44,17 @@ export class ReviewsController {
 
   @Patch(':id')
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
-  update(
+  async update(
     @Param('id', ParseIntPipe) id: number,
     @Body() updateReviewDto: UpdateReviewDto,
     @Req() req: AuthenticatedRequest,
   ) {
-    return this.reviewsService.update(id, updateReviewDto, req.user.id);
+    return this.afterWrite(await this.reviewsService.update(id, updateReviewDto, req.user.id));
   }
 
   @Delete(':id')
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
-  remove(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
-    return this.reviewsService.remove(id, req.user.id);
+  async remove(@Param('id', ParseIntPipe) id: number, @Req() req: AuthenticatedRequest) {
+    return this.afterWrite(await this.reviewsService.remove(id, req.user.id));
   }
 }
