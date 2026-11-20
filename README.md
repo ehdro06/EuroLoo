@@ -129,8 +129,8 @@ EuroLoo runs on a distributed, serverless stack designed for rapid scaling and l
 
 These are deliberate choices for the current scale:
 
-- **In-memory cache and rate limiter**: both live in the Cloud Run instance's memory. With several instances, each keeps its own counters, and a cache clear only reaches the instance that handled the write (other instances serve results up to 1 hour old). The next step would be a shared store such as Redis (Memorystore).
-- **Whole-cache invalidation**: any write clears the entire toilet cache instead of only the affected area. Simple and correct, but wasteful at higher write volumes.
+- **Cache and rate limiter: Redis optional**: with `REDIS_URL` set, map results and rate-limit counters are shared by all Cloud Run instances; without it (the current default) they live in each instance's memory, so a cache clear only reaches the instance that handled the write. Cached results expire after 5 minutes to bound that staleness. If Redis becomes unreachable, the API falls back to memory instead of failing. Redis isn't enabled in production yet: a small European VM isn't free-tier, and the existing free VM is in `us-west1`, where the round trip from `europe-west1` would cost more than the database query it saves.
+- **Whole-cache invalidation**: any write invalidates every cached area (by bumping a generation number in Redis, or clearing memory) instead of only the affected one. Simple and correct, but wasteful at higher write volumes.
 - **Location check trusts the client**: the "within 50m" rule for adding a toilet uses coordinates reported by the browser, so it stops honest mistakes rather than determined abuse. Community reports and admin moderation cover the rest.
 
 ## Local Development

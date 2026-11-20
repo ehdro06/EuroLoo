@@ -9,6 +9,8 @@ import { UsersModule } from './users/users.module.js';
 import { ImagesModule } from './images/images.module.js';
 import { CacheModule } from '@nestjs/cache-manager';
 import { SimpleRateLimitGuard } from './common/guards/simple-rate-limit.guard.js';
+import { RedisModule } from './redis/redis.module.js';
+import { TOILETS_CACHE_TTL_MS } from './toilets/toilets-cache.service.js';
 
 @Module({
   imports: [
@@ -16,11 +18,12 @@ import { SimpleRateLimitGuard } from './common/guards/simple-rate-limit.guard.js
       isGlobal: true,
       envFilePath: ['.env.local', '.env'], // Load .env.local first
     }),
+    // In-memory cache, used when Redis (REDIS_URL) isn't configured or is down
     CacheModule.register({
       isGlobal: true,
-      ttl: 3600000, 
-      max: 100,
+      ttl: TOILETS_CACHE_TTL_MS,
     }),
+    RedisModule,
     PrismaModule,
     ToiletsModule,
     ReviewsModule,

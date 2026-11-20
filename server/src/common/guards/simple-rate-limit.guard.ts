@@ -1,37 +1,55 @@
 import { CanActivate, ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { Request } from 'express';
+import { RedisService } from '../../redis/redis.service.js';
 
 type RateEntry = {
   count: number;
   resetAt: number;
 };
 
+// Fixed-window rate limit. Counts live in Redis when available, so the limit holds
+// across all Cloud Run instances; otherwise in this instance's memory.
 @Injectable()
 export class SimpleRateLimitGuard implements CanActivate {
   private static readonly store = new Map<string, RateEntry>();
 
-  canActivate(context: ExecutionContext): boolean {
+  constructor(private readonly redis: RedisService) {}
+
+  async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<Request>();
-    const now = Date.now();
     const ttlMs = this.getRateLimitTtlMs();
     const limit = this.getRateLimitLimit();
     const key = this.buildKey(request);
 
+    const count = (await this.countInRedis(key, ttlMs)) ?? this.countInMemory(key, ttlMs);
+    if (count > limit) {
+      throw new HttpException('Rate limit exceeded. Please retry shortly.', HttpStatus.TOO_MANY_REQUESTS);
+    }
+    return true;
+  }
+
+  // Returns this request's position in the current window, or null without Redis
+  private countInRedis(key: string, ttlMs: number): Promise<number | null> {
+    const redisKey = `${this.redis.keyPrefix}ratelimit:${key}`;
+    return this.redis.run(async (client) => {
+      const count = await client.incr(redisKey);
+      // The first request of a window starts its timer
+      if (count === 1) await client.pExpire(redisKey, ttlMs);
+      return count;
+    });
+  }
+
+  private countInMemory(key: string, ttlMs: number): number {
+    const now = Date.now();
     this.pruneExpired(now);
 
     const existing = SimpleRateLimitGuard.store.get(key);
     if (!existing || now >= existing.resetAt) {
       SimpleRateLimitGuard.store.set(key, { count: 1, resetAt: now + ttlMs });
-      return true;
+      return 1;
     }
-
-    if (existing.count >= limit) {
-      throw new HttpException('Rate limit exceeded. Please retry shortly.', HttpStatus.TOO_MANY_REQUESTS);
-    }
-
     existing.count += 1;
-    SimpleRateLimitGuard.store.set(key, existing);
-    return true;
+    return existing.count;
   }
 
   private buildKey(request: Request): string {
