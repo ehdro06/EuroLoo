@@ -2,7 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ReviewsController } from './reviews.controller.js';
 import { ReviewsService } from './reviews.service.js';
 import { ConfigService } from '@nestjs/config';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { ToiletsCacheService } from '../toilets/toilets-cache.service.js';
+import { RedisService } from '../redis/redis.service.js';
 
 describe('ReviewsController', () => {
   let controller: ReviewsController;
@@ -35,8 +36,12 @@ describe('ReviewsController', () => {
           useValue: mockConfigService,
         },
         {
-          provide: CACHE_MANAGER,
-          useValue: { clear: jest.fn() },
+          provide: ToiletsCacheService,
+          useValue: { invalidate: jest.fn() },
+        },
+        {
+          provide: RedisService,
+          useValue: { keyPrefix: 'euroloo:', isAvailable: false, run: async () => null },
         }
       ],
     }).compile();

@@ -46,6 +46,7 @@ Environment variables on the `euroloo-git` service:
 | `CORS_ORIGINS` | optional, default `https://euroloo.vercel.app` | Comma-separated; add any custom domain here |
 | `TRUST_PROXY_HOPS` | optional, default `1` | Proxies in front of the API |
 | `RATE_LIMIT_TTL_MS` / `RATE_LIMIT_LIMIT` | optional, defaults `60000` / `60` | Write-route rate limit |
+| `REDIS_URL` | optional, e.g. `rediss://default:<password>@<host>:6379` | Shares the map cache and rate limits across instances; see below |
 
 `NODE_ENV=production` is set in the Dockerfile. The deploy step only swaps the container image, so these settings persist across deploys.
 
@@ -55,6 +56,19 @@ gcloud run services update euroloo-git --region europe-west1 \
   --update-secrets=DATABASE_URL=euroloo-database-url:latest \
   --update-env-vars=GCS_BUCKET_NAME=<bucket>
 ```
+
+### Optional: shared cache with Redis
+
+Without `REDIS_URL`, each Cloud Run instance caches map results (5 minutes) and counts rate limits in its own memory. Setting it moves both to Redis so all instances share them. All keys are prefixed `euroloo:`, cache invalidation only bumps `euroloo:toilets:generation` (it never deletes keys), so the Redis server can be shared with other apps. If Redis is unreachable, requests fall back to memory within ~500 ms and the API reconnects on its own.
+
+Pick a Redis close to `europe-west1`: a server in another region (e.g. `us-west1`) adds more latency than the cache saves. The simplest option is a free [Upstash](https://upstash.com) database in Frankfurt or Ireland (TLS + password, no VM to run):
+
+```bash
+gcloud run services update euroloo-git --region europe-west1 \
+  --update-secrets=REDIS_URL=euroloo-redis-url:latest   # secret holding the rediss:// URL
+```
+
+Never expose a self-hosted Redis port to the internet; reach a VM over a private network (VPC peering + Direct VPC egress) instead.
 
 ## Cloud Storage (photos)
 

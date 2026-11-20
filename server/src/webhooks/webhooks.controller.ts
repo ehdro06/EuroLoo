@@ -1,6 +1,5 @@
-import { Controller, Post, Req, Res, Headers, RawBodyRequest, UseGuards, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Controller, Post, Req, Res, Headers, RawBodyRequest, UseGuards } from '@nestjs/common';
+import { ToiletsCacheService } from '../toilets/toilets-cache.service.js';
 import { UsersService } from '../users/users.service.js';
 import { ImagesService } from '../images/images.service.js';
 import { Request, Response } from 'express';
@@ -29,7 +28,7 @@ export class WebhooksController {
     private readonly configService: ConfigService,
     private readonly usersService: UsersService,
     private readonly imagesService: ImagesService,
-    @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
+    private readonly toiletsCache: ToiletsCacheService,
   ) {}
 
   @Post('clerk')
@@ -113,7 +112,7 @@ export class WebhooksController {
       const { imageUrls } = await this.usersService.deleteAccountData(id);
       await this.imagesService.deleteStoredFiles(imageUrls);
       // Their reviews fed the map's accessibility data
-      await this.cacheManager.clear();
+      await this.toiletsCache.invalidate();
     }
 
     return res.status(200).json({ success: true });

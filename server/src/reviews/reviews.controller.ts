@@ -1,6 +1,5 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ParseIntPipe, Inject } from '@nestjs/common';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
+import { Controller, Get, Post, Body, Patch, Param, Delete, UseGuards, Req, ParseIntPipe } from '@nestjs/common';
+import { ToiletsCacheService } from '../toilets/toilets-cache.service.js';
 import { ReviewsService } from './reviews.service.js';
 import { CreateReviewDto } from './dto/create-review.dto.js';
 import { UpdateReviewDto } from './dto/update-review.dto.js';
@@ -12,12 +11,12 @@ import type { AuthenticatedRequest } from '../auth/authenticated-request.js';
 export class ReviewsController {
   constructor(
     private readonly reviewsService: ReviewsService,
-    @Inject(CACHE_MANAGER) private cacheManager: Cache,
+    private readonly toiletsCache: ToiletsCacheService,
   ) {}
 
   // Review answers feed the map's accessibility data, so cached map results go stale
   private async afterWrite<T>(result: T): Promise<T> {
-    await this.cacheManager.clear();
+    await this.toiletsCache.invalidate();
     return result;
   }
 
