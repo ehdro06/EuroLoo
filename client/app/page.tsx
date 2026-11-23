@@ -472,6 +472,10 @@ function HomePage() {
             <Link href="/privacy" className="underline underline-offset-2">
               Privacy
             </Link>
+            {" · "}
+            <Link href="/terms" className="underline underline-offset-2">
+              Terms
+            </Link>
           </p>
         </div>
       </main>
