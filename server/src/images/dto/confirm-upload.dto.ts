@@ -5,7 +5,8 @@ export class ConfirmUploadDto {
   @IsPositive()
   toiletId!: number;
 
+  // The pending object name returned by POST /images/presigned-url
   @IsString()
-  @MaxLength(512)
-  fileUrl!: string;
+  @MaxLength(128)
+  uploadId!: string;
 }

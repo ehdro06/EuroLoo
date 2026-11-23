@@ -12,11 +12,17 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { ALLOWED_IMAGE_TYPES, AllowedImageType } from './dto/presigned-url.dto.js';
+import { sanitizeImage } from './sanitize-image.js';
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const UPLOAD_URL_TTL_MS = 15 * 60 * 1000;
-// Object names we hand out: <uuid>.<ext>
-const OBJECT_NAME_PATTERN = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
+// Raw uploads land here and are never linked to. A bucket lifecycle rule deletes
+// leftovers (abandoned uploads) after a day; see docs/DEPLOYMENT.md.
+const PENDING_PREFIX = 'pending/';
+// Cleaned, public photos
+const PHOTOS_PREFIX = 'photos/';
+// Upload IDs we hand out: pending/<uuid>.<ext>
+const UPLOAD_ID_PATTERN = /^pending\/([0-9a-f-]{36})\.(jpg|png|webp)$/;
 
 @Injectable()
 export class ImagesService {
@@ -38,39 +44,58 @@ export class ImagesService {
     return `https://storage.googleapis.com/${this.bucketName}/`;
   }
 
-  async generatePresignedUrl(contentType: AllowedImageType): Promise<{ uploadUrl: string; fileUrl: string }> {
-    const fileName = `${crypto.randomUUID()}.${ALLOWED_IMAGE_TYPES[contentType]}`;
+  // The browser uploads the raw file to a pending location; it only becomes a
+  // public photo after confirmUpload has stripped its metadata.
+  async generatePresignedUrl(contentType: AllowedImageType): Promise<{ uploadUrl: string; uploadId: string }> {
+    const uploadId = `${PENDING_PREFIX}${crypto.randomUUID()}.${ALLOWED_IMAGE_TYPES[contentType]}`;
     try {
-      const [uploadUrl] = await this.storage.bucket(this.bucketName).file(fileName).getSignedUrl({
+      const [uploadUrl] = await this.storage.bucket(this.bucketName).file(uploadId).getSignedUrl({
         version: 'v4',
         action: 'write',
         expires: Date.now() + UPLOAD_URL_TTL_MS,
         contentType,
       });
-      return { uploadUrl, fileUrl: `${this.publicUrlPrefix}${fileName}` };
+      return { uploadUrl, uploadId };
     } catch (error) {
       this.logger.error('Error generating presigned URL', error instanceof Error ? error.stack : error);
       throw new InternalServerErrorException('Failed to generate upload URL');
     }
   }
 
-  async confirmUpload(toiletId: number, fileUrl: string, clerkId: string) {
-    if (!fileUrl.startsWith(this.publicUrlPrefix)) {
-      throw new BadRequestException('Invalid file URL');
-    }
-    const objectName = fileUrl.slice(this.publicUrlPrefix.length);
-    if (!OBJECT_NAME_PATTERN.test(objectName)) {
-      throw new BadRequestException('Invalid file URL');
-    }
+  // Turns a pending upload into a public photo: validates it, re-encodes it without
+  // any metadata (GPS position, camera details), stores the clean copy and deletes
+  // the raw upload. This runs on the server so it can't be skipped by a modified client.
+  async confirmUpload(toiletId: number, uploadId: string, clerkId: string) {
+    const match = UPLOAD_ID_PATTERN.exec(uploadId);
+    if (!match) throw new BadRequestException('Invalid upload ID');
 
     const toilet = await this.prisma.toilet.findUnique({ where: { id: toiletId }, select: { id: true } });
     if (!toilet) throw new NotFoundException('Toilet not found');
 
-    await this.assertValidUpload(objectName);
+    const bucket = this.storage.bucket(this.bucketName);
+    const pending = bucket.file(uploadId);
+    await this.assertValidUpload(pending);
+
+    let cleaned: Buffer;
+    try {
+      const [raw] = await pending.download();
+      cleaned = await sanitizeImage(raw);
+    } catch (error) {
+      await pending.delete({ ignoreNotFound: true });
+      this.logger.warn(`Rejected upload ${uploadId}: ${error instanceof Error ? error.message : error}`);
+      throw new BadRequestException('The file is not a valid image');
+    }
+
+    const photoName = `${PHOTOS_PREFIX}${match[1]}.jpg`;
+    await bucket.file(photoName).save(cleaned, {
+      contentType: 'image/jpeg',
+      metadata: { cacheControl: 'public, max-age=31536000, immutable' },
+    });
+    await pending.delete({ ignoreNotFound: true });
 
     const user = await this.usersService.ensureUser(clerkId);
     return this.prisma.image.create({
-      data: { url: fileUrl, toiletId, userId: user.id },
+      data: { url: `${this.publicUrlPrefix}${photoName}`, toiletId, userId: user.id },
     });
   }
 
@@ -122,8 +147,7 @@ export class ImagesService {
   }
 
   // Signed URLs can't cap the upload size, so check what actually landed in the bucket
-  private async assertValidUpload(objectName: string) {
-    const file = this.storage.bucket(this.bucketName).file(objectName);
+  private async assertValidUpload(file: ReturnType<ReturnType<Storage['bucket']>['file']>) {
     const [exists] = await file.exists();
     if (!exists) throw new BadRequestException('Uploaded file not found');
 
