@@ -86,7 +86,7 @@ function HomePage() {
   // We need to pass the zoom level to useToilets so it can calculate the correct bounding box size
   // We use a queryZoom for fetching to avoid excessive API calls while zooming (similar to queryCenter)
   const [queryZoom, setQueryZoom] = useState<number>(initialView.zoom)
-  const { toilets, loading, error } = useToilets(queryCenter, queryZoom)
+  const { toilets, loading, error, failed, retry } = useToilets(queryCenter, queryZoom)
 
   if (restoreToiletId !== null && !loading) {
     setRestoreToiletId(null)
@@ -441,6 +441,11 @@ function HomePage() {
             role="alert"
           >
             <p className="text-sm font-medium text-black">{error}</p>
+            {failed && (
+              <button type="button" onClick={retry} className="mt-1 text-xs font-medium text-black underline underline-offset-2">
+                Try again
+              </button>
+            )}
           </div>
         )}
 
