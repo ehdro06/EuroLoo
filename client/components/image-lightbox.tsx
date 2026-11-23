@@ -8,6 +8,8 @@ import { useSwipeDown } from "@/hooks/use-swipe-down"
 interface ImageLightboxProps {
   image: ImageRecord
   canDelete: boolean
+  // Alt text, e.g. "Photo of the toilet at Alexanderplatz, by Jane D."
+  description: string
   isDeleting: boolean
   onDelete: () => void
   onClose: () => void
@@ -19,7 +21,7 @@ const toolbarButton =
 
 // Full-screen photo viewer. Rendered above the toilet drawer (z-[1002]),
 // which is why it doesn't use the shared Dialog component (z-50).
-export function ImageLightbox({ image, canDelete, isDeleting, onDelete, onClose }: ImageLightboxProps) {
+export function ImageLightbox({ image, canDelete, description, isDeleting, onDelete, onClose }: ImageLightboxProps) {
   const swipe = useSwipeDown(onClose)
   const { dismiss } = swipe
 
@@ -81,7 +83,7 @@ export function ImageLightbox({ image, canDelete, isDeleting, onDelete, onClose 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={image.url}
-            alt={image.user?.username ? `Photo by ${image.user.username}` : "Toilet photo"}
+            alt={description}
             className="max-h-full max-w-full rounded-lg object-contain"
             draggable={false}
             onClick={(e) => e.stopPropagation()}

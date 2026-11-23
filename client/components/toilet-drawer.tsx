@@ -307,7 +307,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
           <Separator className="my-6" />
 
           {/* Image Gallery */}
-          <ImageGallery toiletId={toilet.id} />
+          <ImageGallery toiletId={toilet.id} toiletName={toilet.name} />
 
           <Separator className="my-6" />
 
