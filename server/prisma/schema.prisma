@@ -97,6 +97,7 @@ model User {
   createdToilets Toilet[]
   votes        Vote[]
   images       Image[]
+  uploadGrants UploadGrant[]
 }
 
 model Vote {
@@ -119,4 +120,18 @@ model Image {
   userId    Int?
   user      User?    @relation(fields: [userId], references: [id])
   createdAt DateTime @default(now())
+}
+
+// One row per upload URL handed out. Counts toward the daily photo quotas, and ties the
+// uploaded object to the user who may confirm it. Unconfirmed uploads expire from the bucket.
+model UploadGrant {
+  id          Int       @id @default(autoincrement())
+  objectName  String    @unique
+  userId      Int
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  confirmedAt DateTime?
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
 }

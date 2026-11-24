@@ -39,6 +39,9 @@ steps:
       - 'europe-west1-docker.pkg.dev/$PROJECT_ID/cloud-run-source-deploy/euroloo-backend:$COMMIT_SHA'
       - '--region'
       - 'europe-west1'
+      # Caps how far a traffic spike (or an attack) can scale the bill
+      - '--max-instances'
+      - '3'
 
   # 5. Point the weekly OpenStreetMap sync job at the new image (once the job exists)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'

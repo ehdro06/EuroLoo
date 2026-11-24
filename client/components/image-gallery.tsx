@@ -93,7 +93,7 @@ export function ImageGallery({ toiletId, toiletName }: { toiletId: number; toile
 
       // 1. Get presigned URL
       step = "requesting an upload URL"
-      const { uploadUrl, uploadId } = await getPresignedUrl({ contentType: photo.type }).unwrap()
+      const { uploadUrl, uploadId, uploadHeaders } = await getPresignedUrl({ contentType: photo.type }).unwrap()
 
       // 2. Upload file directly to GCP Storage
       step = "uploading to storage"
@@ -102,6 +102,8 @@ export function ImageGallery({ toiletId, toiletName }: { toiletId: number; toile
         body: photo,
         headers: {
           'Content-Type': photo.type,
+          // Signed into the URL: the bucket rejects files outside this size range
+          ...uploadHeaders,
         },
       })
 
@@ -115,6 +117,11 @@ export function ImageGallery({ toiletId, toiletName }: { toiletId: number; toile
       toast.success("Photo uploaded successfully!")
     } catch (error) {
       console.error(`Upload failed while ${step}`, error)
+      // Daily photo limits come back as 429 with a message meant for the user
+      if ((error as { status?: unknown })?.status === 429) {
+        toast.error("Photo limit reached", { description: getErrorMessage(error, "Please try again tomorrow.") })
+        return
+      }
       toast.error("Upload failed", {
         description: `Failed while ${step}: ${getErrorMessage(error, "unknown error")}`,
       })

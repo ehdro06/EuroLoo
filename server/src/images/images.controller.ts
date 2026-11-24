@@ -12,8 +12,8 @@ export class ImagesController {
 
   @Post('presigned-url')
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
-  getPresignedUrl(@Body() dto: PresignedUrlDto) {
-    return this.imagesService.generatePresignedUrl(dto.contentType);
+  getPresignedUrl(@Body() dto: PresignedUrlDto, @Req() req: AuthenticatedRequest) {
+    return this.imagesService.generatePresignedUrl(dto.contentType, req.user.id);
   }
 
   @Delete(':id')
