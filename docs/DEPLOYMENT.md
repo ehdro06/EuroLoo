@@ -46,6 +46,7 @@ Environment variables on the `euroloo-git` service:
 | `CORS_ORIGINS` | optional, default `https://euroloo.vercel.app` | Comma-separated; add any custom domain here |
 | `TRUST_PROXY_HOPS` | optional, default `1` | Proxies in front of the API |
 | `RATE_LIMIT_TTL_MS` / `RATE_LIMIT_LIMIT` | optional, defaults `60000` / `60` | Write-route rate limit |
+| `UPLOADS_GLOBAL_PER_DAY` / `UPLOADS_USER_PER_DAY` / `UPLOADS_TRUSTED_PER_DAY` | optional, defaults `500` / `50` / `200` | Daily photo limits (UTC days). Trusted: account 14+ days old with 10+ photos still up. Admins have no per-user limit; everyone shares the global one |
 | `REDIS_URL` | optional, e.g. `rediss://default:<password>@<host>:6379` | Shares the map cache and rate limits across instances; see below |
 
 `NODE_ENV=production` is set in the Dockerfile. The deploy step only swaps the container image, so these settings persist across deploys.
@@ -85,11 +86,19 @@ gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
   --member=allUsers --role=roles/storage.objectViewer
 
 # Let the website upload directly
+# The browser sends x-goog-content-length-range, which is signed into the URL; the bucket
+# then refuses any file over 5 MB (400) before storing it
 cat > cors.json <<'JSON'
 [{"origin": ["https://euroloo.vercel.app"], "method": ["PUT"],
-  "responseHeader": ["Content-Type"], "maxAgeSeconds": 3600}]
+  "responseHeader": ["Content-Type", "x-goog-content-length-range"], "maxAgeSeconds": 3600}]
 JSON
 gcloud storage buckets update gs://$BUCKET --cors-file=cors.json
+
+# Uploads land under pending/ and move out when confirmed; delete anything left there after a day
+cat > lifecycle.json <<'JSON'
+{"rule": [{"action": {"type": "Delete"}, "condition": {"age": 1, "matchesPrefix": ["pending/"]}}]}
+JSON
+gcloud storage buckets update gs://$BUCKET --lifecycle-file=lifecycle.json
 
 # The API checks and deletes uploaded objects, and signs upload URLs as itself
 gcloud storage buckets add-iam-policy-binding gs://$BUCKET \
@@ -173,6 +182,7 @@ Project settings: Root Directory `client`, framework Next.js. Environment variab
 
 | Symptom | Likely cause |
 |---|---|
+| Photo upload fails at "uploading to storage" with a CORS error | The bucket CORS `responseHeader` list is missing `x-goog-content-length-range` |
 | "Failed to load toilets" but Cloud Run shows 200s | The site's origin isn't in `CORS_ORIGINS` |
 | Cloud Build fails at `migrate` | Migration secret holds the pooled URL, or Cloud Build can't read the secret |
 | New Cloud Run instances fail to start | `euroloo-database-url` deleted or not readable by the service account |
