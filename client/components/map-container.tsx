@@ -334,6 +334,8 @@ export function MapContainer({
               if (!(e.key in steps)) return
               e.preventDefault()
               const next = Math.max(1, Math.min(18, steps[e.key]))
+              // Update now, so a held-down key or fast presses step from the new level, not a stale one
+              currentZoomRef.current = next
               setTransientZoom(next)
               onZoomChange?.(next)
             }}
