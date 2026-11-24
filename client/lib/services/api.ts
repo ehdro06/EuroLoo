@@ -152,7 +152,7 @@ export const api = createApi({
       query: (toiletId) => `/api/toilets/${toiletId}/images`,
       providesTags: (result, error, toiletId) => [{ type: 'Images', id: toiletId }],
     }),
-    getPresignedUrl: builder.mutation<{ uploadUrl: string; fileUrl: string }, { contentType: string }>({
+    getPresignedUrl: builder.mutation<{ uploadUrl: string; fileUrl: string; uploadHeaders?: Record<string, string> }, { contentType: string }>({
       query: (body) => ({
         url: '/images/presigned-url',
         method: 'POST',

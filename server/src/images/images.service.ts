@@ -11,12 +11,18 @@ import { ConfigService } from '@nestjs/config';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
+import { UploadQuotaService } from './upload-quota.service.js';
 import { ALLOWED_IMAGE_TYPES, AllowedImageType } from './dto/presigned-url.dto.js';
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const UPLOAD_URL_TTL_MS = 15 * 60 * 1000;
-// Object names we hand out: <uuid>.<ext>
+// Uploads land under pending/ and move to <uuid>.<ext> once confirmed. A bucket lifecycle
+// rule deletes whatever is still pending after a day (see docs/DEPLOYMENT.md).
+export const PENDING_PREFIX = 'pending/';
+// Published object names: <uuid>.<ext>
 const OBJECT_NAME_PATTERN = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
+// Cloud Storage rejects a PUT whose body is outside this range (400), before storing anything
+export const CONTENT_LENGTH_RANGE_HEADER = 'x-goog-content-length-range';
 
 @Injectable()
 export class ImagesService {
@@ -28,6 +34,7 @@ export class ImagesService {
     private configService: ConfigService,
     private prisma: PrismaService,
     private usersService: UsersService,
+    private uploadQuota: UploadQuotaService,
   ) {
     // Application Default Credentials: gcloud auth locally, the service account on Cloud Run
     this.storage = new Storage();
@@ -38,40 +45,64 @@ export class ImagesService {
     return `https://storage.googleapis.com/${this.bucketName}/`;
   }
 
-  async generatePresignedUrl(contentType: AllowedImageType): Promise<{ uploadUrl: string; fileUrl: string }> {
-    const fileName = `${crypto.randomUUID()}.${ALLOWED_IMAGE_TYPES[contentType]}`;
+  async generatePresignedUrl(
+    contentType: AllowedImageType,
+    clerkId: string,
+  ): Promise<{ uploadUrl: string; fileUrl: string; uploadHeaders: Record<string, string> }> {
+    const user = await this.usersService.ensureUser(clerkId);
+    await this.uploadQuota.assertCanUpload(user);
+
+    const objectName = `${PENDING_PREFIX}${crypto.randomUUID()}.${ALLOWED_IMAGE_TYPES[contentType]}`;
+    const uploadHeaders = { [CONTENT_LENGTH_RANGE_HEADER]: `0,${MAX_IMAGE_BYTES}` };
+    let uploadUrl: string;
     try {
-      const [uploadUrl] = await this.storage.bucket(this.bucketName).file(fileName).getSignedUrl({
+      [uploadUrl] = await this.storage.bucket(this.bucketName).file(objectName).getSignedUrl({
         version: 'v4',
         action: 'write',
         expires: Date.now() + UPLOAD_URL_TTL_MS,
         contentType,
+        // Signed, so the browser must send it unchanged; the bucket then enforces the size
+        extensionHeaders: uploadHeaders,
       });
-      return { uploadUrl, fileUrl: `${this.publicUrlPrefix}${fileName}` };
     } catch (error) {
       this.logger.error('Error generating presigned URL', error instanceof Error ? error.stack : error);
       throw new InternalServerErrorException('Failed to generate upload URL');
     }
+
+    // Counts toward today's quotas and records who may confirm this object
+    await this.prisma.uploadGrant.create({ data: { objectName, userId: user.id } });
+    return { uploadUrl, fileUrl: `${this.publicUrlPrefix}${objectName}`, uploadHeaders };
   }
 
   async confirmUpload(toiletId: number, fileUrl: string, clerkId: string) {
     if (!fileUrl.startsWith(this.publicUrlPrefix)) {
       throw new BadRequestException('Invalid file URL');
     }
-    const objectName = fileUrl.slice(this.publicUrlPrefix.length);
-    if (!OBJECT_NAME_PATTERN.test(objectName)) {
+    const pendingName = fileUrl.slice(this.publicUrlPrefix.length);
+    const finalName = pendingName.startsWith(PENDING_PREFIX) ? pendingName.slice(PENDING_PREFIX.length) : '';
+    if (!OBJECT_NAME_PATTERN.test(finalName)) {
       throw new BadRequestException('Invalid file URL');
     }
 
     const toilet = await this.prisma.toilet.findUnique({ where: { id: toiletId }, select: { id: true } });
     if (!toilet) throw new NotFoundException('Toilet not found');
 
-    await this.assertValidUpload(objectName);
-
+    // Only the user the upload URL was issued to can publish it, and only once
     const user = await this.usersService.ensureUser(clerkId);
-    return this.prisma.image.create({
-      data: { url: fileUrl, toiletId, userId: user.id },
-    });
+    const grant = await this.prisma.uploadGrant.findUnique({ where: { objectName: pendingName } });
+    if (!grant || grant.userId !== user.id || grant.confirmedAt) {
+      throw new BadRequestException('Unknown or already used upload');
+    }
+
+    await this.assertValidUpload(pendingName);
+    await this.storage.bucket(this.bucketName).file(pendingName).move(finalName);
+
+    const finalUrl = `${this.publicUrlPrefix}${finalName}`;
+    const [image] = await this.prisma.$transaction([
+      this.prisma.image.create({ data: { url: finalUrl, toiletId, userId: user.id } }),
+      this.prisma.uploadGrant.update({ where: { id: grant.id }, data: { confirmedAt: new Date() } }),
+    ]);
+    return image;
   }
 
   // The uploader or an admin can delete a photo
@@ -121,7 +152,7 @@ export class ImagesService {
     );
   }
 
-  // Signed URLs can't cap the upload size, so check what actually landed in the bucket
+  // Backstop: the signed size range should already have stopped an oversized upload
   private async assertValidUpload(objectName: string) {
     const file = this.storage.bucket(this.bucketName).file(objectName);
     const [exists] = await file.exists();
