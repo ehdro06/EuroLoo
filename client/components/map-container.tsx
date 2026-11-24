@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useLayoutEffect } from "react"
 import { Map, Marker, Overlay } from "pigeon-maps"
 import { Locate, Loader2 } from "lucide-react"
 import type { Toilet } from "@/hooks/use-toilets"
+import { toiletLabel } from "@/lib/toilet-label"
 
 interface MapContainerProps {
   toilets: Toilet[]
@@ -245,13 +246,19 @@ export function MapContainer({
         }}
       >
         {toilets.map((toilet) => (
-          <Marker
-            key={toilet.id}
-            width={40}
-            anchor={[toilet.lat, toilet.lon]}
-            color={toilet.isFree ? "#22c55e" : toilet.isPaid ? "#f59e0b" : "#6b7280"}
-            onClick={() => onMarkerClick(toilet)}
-          />
+          // A real button inside the marker, so pins can be reached with Tab, opened with Enter
+          // and read by screen readers; the pin looks the same as the library's default
+          <Marker key={toilet.id} width={40} anchor={[toilet.lat, toilet.lon]}>
+            <button
+              type="button"
+              aria-label={toiletLabel(toilet)}
+              onClick={() => onMarkerClick(toilet)}
+              className="pigeon-click-block block rounded-full p-0 outline-none focus-visible:ring-4 focus-visible:ring-black/60"
+              style={{ pointerEvents: "auto", background: "none", border: 0, cursor: "pointer" }}
+            >
+              <PinIcon color={toilet.isFree ? "#22c55e" : toilet.isPaid ? "#f59e0b" : "#6b7280"} />
+            </button>
+          </Marker>
         ))}
         {userLocation && (
              <Overlay anchor={userLocation} offset={[10, 10]} className="pointer-events-none transition-transform duration-1000 ease-linear">
@@ -311,10 +318,25 @@ export function MapContainer({
           <div
             ref={thumbRef}
             role="slider"
+            aria-label="Map zoom"
+            aria-orientation="vertical"
             aria-valuemin={1}
             aria-valuemax={18}
             aria-valuenow={Math.round(displayZoom)}
             tabIndex={0}
+            // Keyboard: arrows step one level, Page keys three, Home/End jump to the ends
+            onKeyDown={(e) => {
+              const current = Math.round(currentZoomRef.current)
+              const steps: Record<string, number> = {
+                ArrowUp: current + 1, ArrowRight: current + 1, ArrowDown: current - 1, ArrowLeft: current - 1,
+                PageUp: current + 3, PageDown: current - 3, Home: 1, End: 18,
+              }
+              if (!(e.key in steps)) return
+              e.preventDefault()
+              const next = Math.max(1, Math.min(18, steps[e.key]))
+              setTransientZoom(next)
+              onZoomChange?.(next)
+            }}
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId); // Capture pointer
@@ -411,5 +433,20 @@ function SelectionArea({ zoom, lat }: { zoom: number; lat: number }) {
         pointerEvents: 'none' // Let clicks pass through to the map
       }}
     />
+  )
+}
+
+// The map library's default pin, drawn here so it can sit inside a button
+function PinIcon({ color }: { color: string }) {
+  return (
+    <svg width={40} height={47} viewBox="0 0 61 71" fill="none" aria-hidden="true">
+      <path
+        d="M52 31.5C52 36.8395 49.18 42.314 45.0107 47.6094C40.8672 52.872 35.619 57.678 31.1763 61.6922C30.7916 62.0398 30.2084 62.0398 29.8237 61.6922C25.381 57.678 20.1328 52.872 15.9893 47.6094C11.82 42.314 9 36.8395 9 31.5C9 18.5709 18.6801 9 30.5 9C42.3199 9 52 18.5709 52 31.5Z"
+        fill={color}
+        stroke="white"
+        strokeWidth="4"
+      />
+      <circle cx="30.5" cy="30.5" r="8.5" fill="white" opacity="0.6" />
+    </svg>
   )
 }

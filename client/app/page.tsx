@@ -347,6 +347,8 @@ function HomePage() {
                 size="sm" 
                 variant={isAddingToilet ? "destructive" : "secondary"} 
                 className="gap-2"
+                // The text is hidden on phones, so the button needs its own name there
+                aria-label={isAddingToilet ? "Cancel adding a toilet" : "Add a missing toilet"}
                 onClick={() => {
                    if (!user) {
                        toast("Help us keep EuroLoo clean", {
@@ -371,7 +373,7 @@ function HomePage() {
                    }
                 }}
             >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">{isAddingToilet ? "Cancel" : "Add Missing"}</span>
             </Button>
             <Button

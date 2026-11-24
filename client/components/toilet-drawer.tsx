@@ -245,7 +245,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
                 <p className="text-sm font-medium text-black">Fee</p>
                 <p
                   className={`text-sm font-semibold ${
-                    toilet.isFree ? "text-green-600" : toilet.isPaid ? "text-amber-600" : "text-black/60"
+                    toilet.isFree ? "text-green-700" : toilet.isPaid ? "text-amber-700" : "text-black/60"
                   }`}
                 >
                   {toilet.isFree
@@ -275,7 +275,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
               <Accessibility className="h-5 w-5 text-black/60" aria-hidden="true" />
               <div>
                 <p className="text-sm font-medium text-black">Wheelchair accessible</p>
-                <p className={`text-sm font-semibold ${accessibility.positive ? "text-green-600" : "text-black/60"}`}>
+                <p className={`text-sm font-semibold ${accessibility.positive ? "text-green-700" : "text-black/60"}`}>
                   {accessibility.text}
                 </p>
               </div>
@@ -286,7 +286,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
               <Baby className="h-5 w-5 text-black/60" aria-hidden="true" />
               <div>
                 <p className="text-sm font-medium text-black">Baby changing table</p>
-                <p className={`text-sm font-semibold ${changingTable.positive ? "text-green-600" : "text-black/60"}`}>
+                <p className={`text-sm font-semibold ${changingTable.positive ? "text-green-700" : "text-black/60"}`}>
                   {changingTable.text}
                 </p>
               </div>
