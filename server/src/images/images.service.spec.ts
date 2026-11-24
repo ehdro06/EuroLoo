@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import type { ConfigService } from '@nestjs/config';
 import type { PrismaService } from '../prisma/prisma.service.js';
 import type { UsersService } from '../users/users.service.js';
+import type { UploadQuotaService } from './upload-quota.service.js';
 
 const fileMock = {
   delete: jest.fn(),
@@ -9,6 +10,8 @@ const fileMock = {
   getMetadata: jest.fn(),
   download: jest.fn(),
   save: jest.fn(),
+  move: jest.fn(),
+  getSignedUrl: jest.fn(),
 };
 const fileNames: string[] = [];
 jest.mock('@google-cloud/storage', () => ({
@@ -37,14 +40,20 @@ const photoWithGps = () =>
     .jpeg()
     .toBuffer();
 
-const UPLOAD_ID = 'pending/123e4567-e89b-12d3-a456-426614174000.jpg';
-
 const BUCKET_URL = 'https://storage.googleapis.com/test-bucket/';
 const OBJECT = '123e4567-e89b-12d3-a456-426614174000.jpg';
+const UPLOAD_ID = 'pending/' + OBJECT;
+const PHOTO = 'photos/' + OBJECT;
 
 describe('ImagesService', () => {
-  let prisma: { image: Record<string, jest.Mock>; toilet: Record<string, jest.Mock> };
+  let prisma: {
+    image: Record<string, jest.Mock>;
+    toilet: Record<string, jest.Mock>;
+    uploadGrant: Record<string, jest.Mock>;
+    $transaction: jest.Mock;
+  };
   let usersService: { ensureUser: jest.Mock; findByClerkId: jest.Mock };
+  let uploadQuota: { assertCanUpload: jest.Mock };
   let service: ImagesService;
 
   beforeEach(() => {
@@ -52,14 +61,18 @@ describe('ImagesService', () => {
     Object.values(fileMock).forEach((mock) => mock.mockReset());
     fileNames.length = 0;
     prisma = {
-      image: { findUnique: jest.fn(), delete: jest.fn(), create: jest.fn() },
+      image: { findUnique: jest.fn(), delete: jest.fn(), create: jest.fn().mockReturnValue('create-op') },
       toilet: { findUnique: jest.fn() },
+      uploadGrant: { create: jest.fn(), findUnique: jest.fn(), update: jest.fn().mockReturnValue('update-op') },
+      $transaction: jest.fn().mockResolvedValue([{ id: 99 }]),
     };
     usersService = { ensureUser: jest.fn().mockResolvedValue({ id: 5 }), findByClerkId: jest.fn() };
+    uploadQuota = { assertCanUpload: jest.fn().mockResolvedValue(undefined) };
     service = new ImagesService(
       { get: () => 'test-bucket' } as unknown as ConfigService,
       prisma as unknown as PrismaService,
       usersService as unknown as UsersService,
+      uploadQuota as unknown as UploadQuotaService,
     );
   });
 
@@ -96,45 +109,82 @@ describe('ImagesService', () => {
     });
   });
 
+  describe('generatePresignedUrl', () => {
+    it('signs a size range into a pending upload and records a grant', async () => {
+      fileMock.getSignedUrl.mockResolvedValue(['https://signed.example/put']);
+
+      const result = await service.generatePresignedUrl('image/jpeg', 'owner');
+
+      const [options] = fileMock.getSignedUrl.mock.calls[0];
+      expect(options.extensionHeaders).toEqual({ 'x-goog-content-length-range': `0,${5 * 1024 * 1024}` });
+      expect(result.uploadHeaders).toEqual(options.extensionHeaders);
+      expect(result.uploadId).toMatch(/^pending\/[0-9a-f-]{36}\.jpg$/);
+      expect(prisma.uploadGrant.create).toHaveBeenCalledWith({ data: { objectName: result.uploadId, userId: 5 } });
+    });
+
+    it('issues no URL when the quota is used up', async () => {
+      uploadQuota.assertCanUpload.mockRejectedValue(new Error('quota'));
+      await expect(service.generatePresignedUrl('image/png', 'owner')).rejects.toThrow('quota');
+      expect(fileMock.getSignedUrl).not.toHaveBeenCalled();
+      expect(prisma.uploadGrant.create).not.toHaveBeenCalled();
+    });
+  });
+
   describe('confirmUpload', () => {
+    const grant = { id: 7, objectName: UPLOAD_ID, userId: 5, confirmedAt: null };
+
+    beforeEach(() => {
+      prisma.toilet.findUnique.mockResolvedValue({ id: 1 });
+      prisma.uploadGrant.findUnique.mockResolvedValue(grant);
+      fileMock.exists.mockResolvedValue([true]);
+    });
+
     it('rejects upload IDs outside the pending folder', async () => {
-      for (const bad of ['photos/x.jpg', '123e4567-e89b-12d3-a456-426614174000.jpg', 'pending/../secret.jpg']) {
+      for (const bad of ['photos/x.jpg', OBJECT, 'pending/../secret.jpg', BUCKET_URL + UPLOAD_ID]) {
         await expect(service.confirmUpload(1, bad, 'owner')).rejects.toBeInstanceOf(BadRequestException);
       }
+      expect(fileMock.download).not.toHaveBeenCalled();
+    });
+
+    it("rejects someone else's upload", async () => {
+      prisma.uploadGrant.findUnique.mockResolvedValue({ ...grant, userId: 6 });
+      await expect(service.confirmUpload(1, UPLOAD_ID, 'owner')).rejects.toBeInstanceOf(BadRequestException);
+      expect(fileMock.download).not.toHaveBeenCalled();
+    });
+
+    it('rejects an upload that was already confirmed', async () => {
+      prisma.uploadGrant.findUnique.mockResolvedValue({ ...grant, confirmedAt: new Date() });
+      await expect(service.confirmUpload(1, UPLOAD_ID, 'owner')).rejects.toBeInstanceOf(BadRequestException);
+      expect(fileMock.download).not.toHaveBeenCalled();
     });
 
     it('deletes and rejects an oversized upload', async () => {
-      prisma.toilet.findUnique.mockResolvedValue({ id: 1 });
-      fileMock.exists.mockResolvedValue([true]);
       fileMock.getMetadata.mockResolvedValue([{ size: String(6 * 1024 * 1024), contentType: 'image/jpeg' }]);
 
       await expect(service.confirmUpload(1, UPLOAD_ID, 'owner')).rejects.toBeInstanceOf(BadRequestException);
       expect(fileMock.delete).toHaveBeenCalled();
+      expect(fileMock.save).not.toHaveBeenCalled();
       expect(prisma.image.create).not.toHaveBeenCalled();
     });
 
     it('rejects a file that is not really an image', async () => {
-      prisma.toilet.findUnique.mockResolvedValue({ id: 1 });
-      fileMock.exists.mockResolvedValue([true]);
       fileMock.getMetadata.mockResolvedValue([{ size: '20', contentType: 'image/jpeg' }]);
       fileMock.download.mockResolvedValue([Buffer.from('<html>not a photo</html>')]);
 
       await expect(service.confirmUpload(1, UPLOAD_ID, 'owner')).rejects.toBeInstanceOf(BadRequestException);
       expect(fileMock.delete).toHaveBeenCalled();
       expect(fileMock.save).not.toHaveBeenCalled();
+      expect(prisma.uploadGrant.update).not.toHaveBeenCalled();
     });
 
-    it('publishes a copy without GPS or any other metadata and removes the raw upload', async () => {
+    it('publishes a copy without GPS or any other metadata, removes the raw upload and marks the grant used', async () => {
       const original = await photoWithGps();
       // Sanity check: the input really carries a location
       expect(await exifr.gps(original)).toMatchObject({ latitude: expect.any(Number), longitude: expect.any(Number) });
-
-      prisma.toilet.findUnique.mockResolvedValue({ id: 1 });
-      fileMock.exists.mockResolvedValue([true]);
       fileMock.getMetadata.mockResolvedValue([{ size: String(original.length), contentType: 'image/jpeg' }]);
       fileMock.download.mockResolvedValue([original]);
 
-      await service.confirmUpload(1, UPLOAD_ID, 'owner');
+      await expect(service.confirmUpload(1, UPLOAD_ID, 'owner')).resolves.toEqual({ id: 99 });
 
       const [savedBuffer, saveOptions] = fileMock.save.mock.calls[0] as [Buffer, { contentType: string }];
       expect(saveOptions.contentType).toBe('image/jpeg');
@@ -143,11 +193,10 @@ describe('ImagesService', () => {
       expect((await sharp(savedBuffer).metadata()).exif).toBeUndefined();
 
       // Stored under photos/, the pending file deleted, and only the clean URL saved
-      expect(fileNames).toContain('photos/123e4567-e89b-12d3-a456-426614174000.jpg');
+      expect(fileNames).toContain(PHOTO);
       expect(fileMock.delete).toHaveBeenCalled();
-      expect(prisma.image.create).toHaveBeenCalledWith({
-        data: { url: BUCKET_URL + 'photos/123e4567-e89b-12d3-a456-426614174000.jpg', toiletId: 1, userId: 5 },
-      });
+      expect(prisma.image.create).toHaveBeenCalledWith({ data: { url: BUCKET_URL + PHOTO, toiletId: 1, userId: 5 } });
+      expect(prisma.uploadGrant.update).toHaveBeenCalledWith({ where: { id: 7 }, data: { confirmedAt: expect.any(Date) } });
     });
   });
 });
