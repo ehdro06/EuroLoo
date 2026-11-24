@@ -25,6 +25,6 @@ export class ImagesController {
   @Post('confirm')
   @UseGuards(ClerkAuthGuard, SimpleRateLimitGuard)
   confirmUpload(@Body() dto: ConfirmUploadDto, @Req() req: AuthenticatedRequest) {
-    return this.imagesService.confirmUpload(dto.toiletId, dto.fileUrl, req.user.id);
+    return this.imagesService.confirmUpload(dto.toiletId, dto.uploadId, req.user.id);
   }
 }

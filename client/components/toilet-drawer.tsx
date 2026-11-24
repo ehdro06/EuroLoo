@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import type { Toilet } from "@/hooks/use-toilets"
 import type { Review } from "@/lib/services/api"
 import { AddReviewForm } from "./add-review-form"
-import { useState } from "react"
+import { useRef, useState } from "react"
 import { Separator } from "@/components/ui/separator"
 import { useGetReviewsByToiletQuery, useReportToiletMutation, useVerifyToiletMutation } from "@/lib/services/api"
 import { toast } from "sonner"
@@ -14,6 +14,7 @@ import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { ImageGallery } from "./image-gallery"
 import { getErrorMessage } from "@/lib/errors"
 import { useSwipeDown } from "@/hooks/use-swipe-down"
+import { useDialogFocus } from "@/hooks/use-dialog-focus"
 
 const VOTED_STORAGE_KEY = "votedToilets"
 
@@ -49,6 +50,9 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
   const openSignIn = useSignInHere()
   const [showReviewForm, setShowReviewForm] = useState(false)
   const swipe = useSwipeDown(() => onOpenChange(false))
+  const panelRef = useRef<HTMLDivElement>(null)
+  // Escape closes, focus moves into the sheet and back to the opener afterwards
+  useDialogFocus(open && !!toilet, panelRef, swipe.dismiss)
   const [hasVotedLocally, setHasVotedLocally] = useState(false) 
   const externalId = toilet?.externalId || ""
   
@@ -170,6 +174,8 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
       <div
         className="fixed bottom-0 left-0 right-0 z-[1002] rounded-t-2xl border-t border-black/10 bg-white shadow-2xl max-h-[85vh] overflow-y-auto"
         style={swipe.style}
+        ref={panelRef}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="drawer-title"
@@ -198,7 +204,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
                 </div>
                 {toilet.operator && <p className="mt-1 text-sm text-black/60">Operated by {toilet.operator}</p>}
               </div>
-              <Button variant="ghost" size="icon" onClick={swipe.dismiss} aria-label="Close details">
+              <Button variant="ghost" size="icon" onClick={swipe.dismiss} aria-label="Close details" data-autofocus>
                 <X className="h-5 w-5" />
               </Button>
             </div>
@@ -245,7 +251,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
                 <p className="text-sm font-medium text-black">Fee</p>
                 <p
                   className={`text-sm font-semibold ${
-                    toilet.isFree ? "text-green-600" : toilet.isPaid ? "text-amber-600" : "text-black/60"
+                    toilet.isFree ? "text-green-700" : toilet.isPaid ? "text-amber-700" : "text-black/70"
                   }`}
                 >
                   {toilet.isFree
@@ -275,7 +281,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
               <Accessibility className="h-5 w-5 text-black/60" aria-hidden="true" />
               <div>
                 <p className="text-sm font-medium text-black">Wheelchair accessible</p>
-                <p className={`text-sm font-semibold ${accessibility.positive ? "text-green-600" : "text-black/60"}`}>
+                <p className={`text-sm font-semibold ${accessibility.positive ? "text-green-700" : "text-black/70"}`}>
                   {accessibility.text}
                 </p>
               </div>
@@ -286,7 +292,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
               <Baby className="h-5 w-5 text-black/60" aria-hidden="true" />
               <div>
                 <p className="text-sm font-medium text-black">Baby changing table</p>
-                <p className={`text-sm font-semibold ${changingTable.positive ? "text-green-600" : "text-black/60"}`}>
+                <p className={`text-sm font-semibold ${changingTable.positive ? "text-green-700" : "text-black/70"}`}>
                   {changingTable.text}
                 </p>
               </div>
@@ -307,7 +313,7 @@ export function ToiletDrawer({ toilet, open, onOpenChange }: ToiletDrawerProps) 
           <Separator className="my-6" />
 
           {/* Image Gallery */}
-          <ImageGallery toiletId={toilet.id} />
+          <ImageGallery toiletId={toilet.id} toiletName={toilet.name} />
 
           <Separator className="my-6" />
 

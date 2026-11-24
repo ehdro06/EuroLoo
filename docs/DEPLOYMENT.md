@@ -73,7 +73,23 @@ Never expose a self-hosted Redis port to the internet; reach a VM over a private
 
 ## Cloud Storage (photos)
 
-Photos are uploaded straight from the browser to the bucket using a short-lived signed URL from the API, then the API checks the stored file (type and size) before saving it.
+Photo uploads, and how location data is removed:
+
+1. `POST /images/presigned-url` checks the daily upload limits, records which user the upload belongs to, and returns a short-lived signed URL for `pending/<uuid>.<ext>` with a 5 MB size range signed in.
+2. The browser re-encodes the photo (which drops its EXIF, including GPS) and uploads it there. Nothing links to pending files.
+3. `POST /images/confirm` checks that the upload is the caller's and not yet used, downloads it, checks type and size, and **re-encodes it with sharp without any metadata** (orientation applied, max 2048px, JPEG). It saves the clean copy as `photos/<uuid>.jpg`, deletes the pending file, and stores only the clean URL.
+
+Step 3 is the guarantee: someone bypassing the web app's step 2 still can't publish a photo with metadata. Pending uploads that were never confirmed are deleted by the lifecycle rule in the setup below.
+
+Photos uploaded before this change may still contain metadata. Check (read-only) and, if needed, clean them in place (same URLs):
+
+```bash
+cd server
+GCS_BUCKET_NAME=<bucket> pnpm audit:photos         # report
+GCS_BUCKET_NAME=<bucket> pnpm audit:photos --fix   # rewrite without metadata
+```
+
+Setup:
 
 ```bash
 BUCKET=<bucket>
@@ -190,4 +206,4 @@ Project settings: Root Directory `client`, framework Next.js. Environment variab
 | OSM sync execution failed | Check its logs for `sync failed`; usually an Overpass timeout or rate limit for one country. Rerun with `OSM_COUNTRIES=<code>` |
 | Photo upload: "Failed while requesting an upload URL" | `GCS_BUCKET_NAME` unset, or missing Token Creator role |
 | Photo upload: "Failed while uploading to storage" | Bucket CORS doesn't include the site's origin |
-| Photo upload: "Failed while saving the photo" | Missing `storage.objectAdmin` on the bucket, or the file is over 5MB / not JPEG, PNG or WebP |
+| Photo upload: "Failed while saving the photo" | Missing `storage.objectAdmin` on the bucket, or the file is over 5MB / not a valid JPEG, PNG or WebP image |

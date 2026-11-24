@@ -152,7 +152,10 @@ export const api = createApi({
       query: (toiletId) => `/api/toilets/${toiletId}/images`,
       providesTags: (result, error, toiletId) => [{ type: 'Images', id: toiletId }],
     }),
-    getPresignedUrl: builder.mutation<{ uploadUrl: string; fileUrl: string; uploadHeaders?: Record<string, string> }, { contentType: string }>({
+    getPresignedUrl: builder.mutation<
+      { uploadUrl: string; uploadId: string; uploadHeaders?: Record<string, string> },
+      { contentType: string }
+    >({
       query: (body) => ({
         url: '/images/presigned-url',
         method: 'POST',
@@ -166,7 +169,7 @@ export const api = createApi({
       }),
       invalidatesTags: (result, error, { toiletId }) => [{ type: 'Images', id: toiletId }],
     }),
-    confirmImageUpload: builder.mutation<ImageRecord, { toiletId: number; fileUrl: string }>({
+    confirmImageUpload: builder.mutation<ImageRecord, { toiletId: number; uploadId: string }>({
       query: (body) => ({
         url: '/images/confirm',
         method: 'POST',

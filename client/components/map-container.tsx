@@ -5,6 +5,15 @@ import { Map, Marker, Overlay } from "pigeon-maps"
 import { Locate, Loader2 } from "lucide-react"
 import type { Toilet } from "@/hooks/use-toilets"
 
+// Pin colors (Tailwind green-700 / amber-700 / gray-600) keep at least 3:1 contrast
+// against every OpenStreetMap background (land, roads, parks, water), as WCAG 1.4.11
+// requires for meaningful graphics. Free/paid is also shown in text in the details.
+export const PIN_COLORS = { free: "#15803d", paid: "#b45309", unknown: "#4b5563" } as const
+
+function pinColor(toilet: Toilet) {
+  return toilet.isFree ? PIN_COLORS.free : toilet.isPaid ? PIN_COLORS.paid : PIN_COLORS.unknown
+}
+
 interface MapContainerProps {
   toilets: Toilet[]
   loading: boolean
@@ -249,7 +258,7 @@ export function MapContainer({
             key={toilet.id}
             width={40}
             anchor={[toilet.lat, toilet.lon]}
-            color={toilet.isFree ? "#22c55e" : toilet.isPaid ? "#f59e0b" : "#6b7280"}
+            color={pinColor(toilet)}
             onClick={() => onMarkerClick(toilet)}
           />
         ))}
@@ -311,10 +320,24 @@ export function MapContainer({
           <div
             ref={thumbRef}
             role="slider"
+            aria-label="Map zoom"
+            aria-orientation="vertical"
             aria-valuemin={1}
             aria-valuemax={18}
             aria-valuenow={Math.round(displayZoom)}
             tabIndex={0}
+            onKeyDown={(e) => {
+              const steps: Record<string, number> = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 3, PageDown: -3 }
+              let next: number | null = null
+              if (e.key in steps) next = currentZoomRef.current + steps[e.key]
+              else if (e.key === "Home") next = 1
+              else if (e.key === "End") next = 18
+              if (next === null) return
+              e.preventDefault()
+              const clamped = Math.max(1, Math.min(18, Math.round(next)))
+              setTransientZoom(clamped)
+              onZoomChange?.(clamped)
+            }}
             onPointerDown={(e) => {
               e.preventDefault()
               e.currentTarget.setPointerCapture(e.pointerId); // Capture pointer
