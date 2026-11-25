@@ -7,5 +7,6 @@ export const SITE_CONFIG = {
   operatorName: "Jaemin Jo" as string | null,
   contactEmail: "ideal3339@gmail.com" as string | null,
   repositoryUrl: "https://github.com/ehdro06/euroloo",
-  privacyLastUpdated: "2026-11-18",
+  privacyLastUpdated: "2026-11-23",
+  termsLastUpdated: "2026-11-23",
 }

@@ -15,11 +15,22 @@ import { useUser } from "@clerk/nextjs"
 import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { getErrorMessage } from "@/lib/errors"
 import { ImageLightbox } from "./image-lightbox"
+import { stripImage } from "@/lib/strip-image"
 
 // Must match ALLOWED_IMAGE_TYPES on the server
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"]
+// Originals can be large phone photos; they're scaled down before upload
+const MAX_ORIGINAL_BYTES = 25 * 1024 * 1024
+// Must match MAX_IMAGE_BYTES on the server (checked after scaling down)
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024
 
-export function ImageGallery({ toiletId }: { toiletId: number }) {
+// e.g. "Photo of the toilet at Alexanderplatz, by Jane D." (used as alt text and labels)
+function photoDescription(toiletName: string | null | undefined, uploader: string | null | undefined, verb: string) {
+  const place = toiletName ? `the toilet at ${toiletName}` : "this toilet"
+  return `${verb} of ${place}${uploader ? `, by ${uploader}` : ""}`
+}
+
+export function ImageGallery({ toiletId, toiletName }: { toiletId: number; toiletName?: string | null }) {
   const { user } = useUser()
   const openSignIn = useSignInHere()
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -65,25 +76,32 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
       toast.error("Invalid file type", { description: "Please select a JPEG, PNG or WebP image." })
       return
     }
-    if (file.size > 5 * 1024 * 1024) { // 5MB limit
-      toast.error("File too large", { description: "Maximum file size is 5MB." })
+    if (file.size > MAX_ORIGINAL_BYTES) {
+      toast.error("File too large", { description: "Please choose a photo under 25MB." })
       return
     }
 
     setIsUploading(true)
     // Track the current step so the error message says where it failed
-    let step = "requesting an upload URL"
+    let step = "preparing the photo"
     try {
+      // 0. Remove location and other metadata, and scale down, on the device
+      const photo = await stripImage(file)
+      if (photo.size > MAX_UPLOAD_BYTES) {
+        throw new Error("The photo is still larger than 5MB after resizing")
+      }
+
       // 1. Get presigned URL
-      const { uploadUrl, fileUrl, uploadHeaders } = await getPresignedUrl({ contentType: file.type }).unwrap()
+      step = "requesting an upload URL"
+      const { uploadUrl, uploadId, uploadHeaders } = await getPresignedUrl({ contentType: photo.type }).unwrap()
 
       // 2. Upload file directly to GCP Storage
       step = "uploading to storage"
       const uploadResponse = await fetch(uploadUrl, {
         method: 'PUT',
-        body: file,
+        body: photo,
         headers: {
-          'Content-Type': file.type,
+          'Content-Type': photo.type,
           // Signed into the URL: the bucket rejects files outside this size range
           ...uploadHeaders,
         },
@@ -95,7 +113,7 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
 
       // 3. Confirm with our API
       step = "saving the photo"
-      await confirmUpload({ toiletId, fileUrl }).unwrap()
+      await confirmUpload({ toiletId, uploadId }).unwrap()
       toast.success("Photo uploaded successfully!")
     } catch (error) {
       console.error(`Upload failed while ${step}`, error)
@@ -140,6 +158,9 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
           className="hidden" 
         />
       </div>
+      <p className="text-xs text-black/60">
+        Only upload photos you took. No people or licence plates. Location data is removed.
+      </p>
 
       {isLoading ? (
         <div className="flex justify-center py-8">
@@ -152,14 +173,15 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
               key={img.id}
               type="button"
               onClick={() => setViewedImage(img)}
-              aria-label={img.user?.username ? `View photo by ${img.user.username}` : "View photo"}
+              aria-label={photoDescription(toiletName, img.user?.username, "View photo")}
               className="relative aspect-square w-48 shrink-0 snap-center overflow-hidden rounded-xl border bg-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-black"
             >
               {/* Using standard img tag for external URLs without configured Next.js domains */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img 
                 src={img.url} 
-                alt="Toilet" 
+                // The button's label describes the photo
+                alt="" 
                 className="h-full w-full object-cover transition-transform hover:scale-105"
                 loading="lazy"
               />
@@ -182,6 +204,7 @@ export function ImageGallery({ toiletId }: { toiletId: number }) {
         <ImageLightbox
           image={viewedImage}
           canDelete={canDelete(viewedImage)}
+          description={photoDescription(toiletName, viewedImage.user?.username, "Photo")}
           isDeleting={isDeleting}
           onDelete={() => handleDelete(viewedImage)}
           onClose={closeViewer}

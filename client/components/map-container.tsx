@@ -1,10 +1,26 @@
 "use client"
 
-import { useEffect, useRef, useState, useLayoutEffect } from "react"
+import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react"
 import { Map, Marker, Overlay } from "pigeon-maps"
 import { Locate, Loader2 } from "lucide-react"
 import type { Toilet } from "@/hooks/use-toilets"
-import { toiletLabel } from "@/lib/toilet-label"
+import { createToiletIndex, mapItemsAt, zoomToExpand } from "@/lib/clusters"
+
+// Pin colors (Tailwind green-700 / amber-700 / gray-600) keep at least 3:1 contrast
+// against every OpenStreetMap background (land, roads, parks, water), as WCAG 1.4.11
+// requires for meaningful graphics. Free/paid is also shown in text in the details.
+export const PIN_COLORS = { free: "#15803d", paid: "#b45309", unknown: "#4b5563" } as const
+
+// Bubbles grow a little with the number of toilets they hold
+function clusterSize(count: number) {
+  if (count < 10) return 36
+  if (count < 100) return 42
+  return 50
+}
+
+function pinColor(toilet: Toilet) {
+  return toilet.isFree ? PIN_COLORS.free : toilet.isPaid ? PIN_COLORS.paid : PIN_COLORS.unknown
+}
 
 interface MapContainerProps {
   toilets: Toilet[]
@@ -184,6 +200,21 @@ export function MapContainer({
 
   const lastClickRef = useRef<number>(0)
 
+  // Group nearby pins into numbered bubbles when zoomed out
+  const toiletIndex = useMemo(() => createToiletIndex(toilets), [toilets])
+  const clusterZoom = Math.floor(transientZoom ?? displayZoom)
+  const mapItems = useMemo(() => mapItemsAt(toiletIndex, clusterZoom), [toiletIndex, clusterZoom])
+
+  const expandCluster = (clusterId: number, lat: number, lon: number) => {
+    const target = zoomToExpand(toiletIndex, clusterId)
+    if (mapRef.current?.setCenterZoomTarget) {
+      mapRef.current.setCenterZoomTarget([lat, lon], target, false, null, 400)
+    } else {
+      setTransientCenter([lat, lon])
+      setTransientZoom(target)
+    }
+  }
+
   return (
     <div 
       ref={containerRef} 
@@ -245,21 +276,35 @@ export function MapContainer({
             }
         }}
       >
-        {toilets.map((toilet) => (
-          // A real button inside the marker, so pins can be reached with Tab, opened with Enter
-          // and read by screen readers; the pin looks the same as the library's default
-          <Marker key={toilet.id} width={40} anchor={[toilet.lat, toilet.lon]}>
-            <button
-              type="button"
-              aria-label={toiletLabel(toilet)}
-              onClick={() => onMarkerClick(toilet)}
-              className="pigeon-click-block block rounded-full p-0 outline-none focus-visible:ring-4 focus-visible:ring-black/60"
-              style={{ pointerEvents: "auto", background: "none", border: 0, cursor: "pointer" }}
-            >
-              <PinIcon color={toilet.isFree ? "#22c55e" : toilet.isPaid ? "#f59e0b" : "#6b7280"} />
-            </button>
-          </Marker>
-        ))}
+        {mapItems.map((item) => {
+          if (item.kind === "toilet") {
+            const { toilet } = item
+            return (
+              <Marker
+                key={toilet.id}
+                width={40}
+                anchor={[toilet.lat, toilet.lon]}
+                color={pinColor(toilet)}
+                onClick={() => onMarkerClick(toilet)}
+              />
+            )
+          }
+          const size = clusterSize(item.count)
+          return (
+            <Overlay key={`cluster-${item.id}`} anchor={[item.lat, item.lon]} offset={[size / 2, size / 2]}>
+              <button
+                type="button"
+                // pigeon-click-block: the tap shouldn't also count as a map click (e.g. when adding a toilet)
+                className="pigeon-click-block flex items-center justify-center rounded-full border-2 border-white bg-gray-800 text-sm font-semibold text-white shadow-md transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-sky-400"
+                style={{ width: size, height: size }}
+                aria-label={`${item.count} toilets here. Zoom in`}
+                onClick={() => expandCluster(item.id, item.lat, item.lon)}
+              >
+                {item.count}
+              </button>
+            </Overlay>
+          )
+        })}
         {userLocation && (
              <Overlay anchor={userLocation} offset={[10, 10]} className="pointer-events-none transition-transform duration-1000 ease-linear">
                  <div className="relative flex h-5 w-5 items-center justify-center">
@@ -324,20 +369,17 @@ export function MapContainer({
             aria-valuemax={18}
             aria-valuenow={Math.round(displayZoom)}
             tabIndex={0}
-            // Keyboard: arrows step one level, Page keys three, Home/End jump to the ends
             onKeyDown={(e) => {
-              const current = Math.round(currentZoomRef.current)
-              const steps: Record<string, number> = {
-                ArrowUp: current + 1, ArrowRight: current + 1, ArrowDown: current - 1, ArrowLeft: current - 1,
-                PageUp: current + 3, PageDown: current - 3, Home: 1, End: 18,
-              }
-              if (!(e.key in steps)) return
+              const steps: Record<string, number> = { ArrowUp: 1, ArrowRight: 1, ArrowDown: -1, ArrowLeft: -1, PageUp: 3, PageDown: -3 }
+              let next: number | null = null
+              if (e.key in steps) next = currentZoomRef.current + steps[e.key]
+              else if (e.key === "Home") next = 1
+              else if (e.key === "End") next = 18
+              if (next === null) return
               e.preventDefault()
-              const next = Math.max(1, Math.min(18, steps[e.key]))
-              // Update now, so a held-down key or fast presses step from the new level, not a stale one
-              currentZoomRef.current = next
-              setTransientZoom(next)
-              onZoomChange?.(next)
+              const clamped = Math.max(1, Math.min(18, Math.round(next)))
+              setTransientZoom(clamped)
+              onZoomChange?.(clamped)
             }}
             onPointerDown={(e) => {
               e.preventDefault()

@@ -1,13 +1,16 @@
 "use client"
 
-import { useEffect } from "react"
+import { useRef } from "react"
 import { Loader2, Trash2, X } from "lucide-react"
 import type { ImageRecord } from "@/lib/services/api"
 import { useSwipeDown } from "@/hooks/use-swipe-down"
+import { useDialogFocus } from "@/hooks/use-dialog-focus"
 
 interface ImageLightboxProps {
   image: ImageRecord
   canDelete: boolean
+  // Alt text, e.g. "Photo of the toilet at Alexanderplatz, by Jane D."
+  description: string
   isDeleting: boolean
   onDelete: () => void
   onClose: () => void
@@ -19,23 +22,20 @@ const toolbarButton =
 
 // Full-screen photo viewer. Rendered above the toilet drawer (z-[1002]),
 // which is why it doesn't use the shared Dialog component (z-50).
-export function ImageLightbox({ image, canDelete, isDeleting, onDelete, onClose }: ImageLightboxProps) {
+export function ImageLightbox({ image, canDelete, description, isDeleting, onDelete, onClose }: ImageLightboxProps) {
   const swipe = useSwipeDown(onClose)
   const { dismiss } = swipe
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") dismiss()
-    }
-    window.addEventListener("keydown", onKeyDown)
-    return () => window.removeEventListener("keydown", onKeyDown)
-  }, [dismiss])
+  const viewerRef = useRef<HTMLDivElement>(null)
+  useDialogFocus(true, viewerRef, dismiss)
 
   const uploadedOn = new Date(image.createdAt).toLocaleDateString()
 
   return (
     <div
-      className="fixed inset-0 z-[1100] flex touch-none select-none flex-col"
+      ref={viewerRef}
+      tabIndex={-1}
+      className="fixed inset-0 z-[1100] flex touch-none select-none flex-col outline-none"
       role="dialog"
       aria-modal="true"
       aria-label="Photo viewer"
@@ -68,7 +68,7 @@ export function ImageLightbox({ image, canDelete, isDeleting, onDelete, onClose 
               Delete
             </button>
           )}
-          <button type="button" onClick={dismiss} aria-label="Close photo" className={`${toolbarButton} w-10 hover:bg-white/20`}>
+          <button type="button" onClick={dismiss} aria-label="Close photo" data-autofocus className={`${toolbarButton} w-10 hover:bg-white/20`}>
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -81,7 +81,7 @@ export function ImageLightbox({ image, canDelete, isDeleting, onDelete, onClose 
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={image.url}
-            alt={image.user?.username ? `Photo by ${image.user.username}` : "Toilet photo"}
+            alt={description}
             className="max-h-full max-w-full rounded-lg object-contain"
             draggable={false}
             onClick={(e) => e.stopPropagation()}

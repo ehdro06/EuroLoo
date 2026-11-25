@@ -13,14 +13,18 @@ import { PrismaService } from '../prisma/prisma.service.js';
 import { UsersService } from '../users/users.service.js';
 import { UploadQuotaService } from './upload-quota.service.js';
 import { ALLOWED_IMAGE_TYPES, AllowedImageType } from './dto/presigned-url.dto.js';
+import { sanitizeImage } from './sanitize-image.js';
 
 export const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 const UPLOAD_URL_TTL_MS = 15 * 60 * 1000;
-// Uploads land under pending/ and move to <uuid>.<ext> once confirmed. A bucket lifecycle
-// rule deletes whatever is still pending after a day (see docs/DEPLOYMENT.md).
+// Raw uploads land under pending/ and are never linked to. They become public only after
+// confirmUpload has stripped their metadata. A bucket lifecycle rule deletes leftovers
+// (abandoned uploads) after a day; see docs/DEPLOYMENT.md.
 export const PENDING_PREFIX = 'pending/';
-// Published object names: <uuid>.<ext>
-const OBJECT_NAME_PATTERN = /^[0-9a-f-]{36}\.(jpg|png|webp)$/;
+// Cleaned, public photos
+const PHOTOS_PREFIX = 'photos/';
+// Upload IDs we hand out: pending/<uuid>.<ext>
+const UPLOAD_ID_PATTERN = /^pending\/([0-9a-f-]{36})\.(jpg|png|webp)$/;
 // Cloud Storage rejects a PUT whose body is outside this range (400), before storing anything
 export const CONTENT_LENGTH_RANGE_HEADER = 'x-goog-content-length-range';
 
@@ -45,18 +49,20 @@ export class ImagesService {
     return `https://storage.googleapis.com/${this.bucketName}/`;
   }
 
+  // The browser uploads the raw file to a pending location; it only becomes a
+  // public photo after confirmUpload has stripped its metadata.
   async generatePresignedUrl(
     contentType: AllowedImageType,
     clerkId: string,
-  ): Promise<{ uploadUrl: string; fileUrl: string; uploadHeaders: Record<string, string> }> {
+  ): Promise<{ uploadUrl: string; uploadId: string; uploadHeaders: Record<string, string> }> {
     const user = await this.usersService.ensureUser(clerkId);
     await this.uploadQuota.assertCanUpload(user);
 
-    const objectName = `${PENDING_PREFIX}${crypto.randomUUID()}.${ALLOWED_IMAGE_TYPES[contentType]}`;
+    const uploadId = `${PENDING_PREFIX}${crypto.randomUUID()}.${ALLOWED_IMAGE_TYPES[contentType]}`;
     const uploadHeaders = { [CONTENT_LENGTH_RANGE_HEADER]: `0,${MAX_IMAGE_BYTES}` };
     let uploadUrl: string;
     try {
-      [uploadUrl] = await this.storage.bucket(this.bucketName).file(objectName).getSignedUrl({
+      [uploadUrl] = await this.storage.bucket(this.bucketName).file(uploadId).getSignedUrl({
         version: 'v4',
         action: 'write',
         expires: Date.now() + UPLOAD_URL_TTL_MS,
@@ -69,37 +75,52 @@ export class ImagesService {
       throw new InternalServerErrorException('Failed to generate upload URL');
     }
 
-    // Counts toward today's quotas and records who may confirm this object
-    await this.prisma.uploadGrant.create({ data: { objectName, userId: user.id } });
-    return { uploadUrl, fileUrl: `${this.publicUrlPrefix}${objectName}`, uploadHeaders };
+    // Counts toward today's quotas and records who may confirm this upload
+    await this.prisma.uploadGrant.create({ data: { objectName: uploadId, userId: user.id } });
+    return { uploadUrl, uploadId, uploadHeaders };
   }
 
-  async confirmUpload(toiletId: number, fileUrl: string, clerkId: string) {
-    if (!fileUrl.startsWith(this.publicUrlPrefix)) {
-      throw new BadRequestException('Invalid file URL');
-    }
-    const pendingName = fileUrl.slice(this.publicUrlPrefix.length);
-    const finalName = pendingName.startsWith(PENDING_PREFIX) ? pendingName.slice(PENDING_PREFIX.length) : '';
-    if (!OBJECT_NAME_PATTERN.test(finalName)) {
-      throw new BadRequestException('Invalid file URL');
-    }
+  // Turns a pending upload into a public photo: checks it belongs to this user and is
+  // unused, validates it, re-encodes it without any metadata (GPS position, camera
+  // details), stores the clean copy and deletes the raw upload. This runs on the server
+  // so it can't be skipped by a modified client.
+  async confirmUpload(toiletId: number, uploadId: string, clerkId: string) {
+    const match = UPLOAD_ID_PATTERN.exec(uploadId);
+    if (!match) throw new BadRequestException('Invalid upload ID');
 
     const toilet = await this.prisma.toilet.findUnique({ where: { id: toiletId }, select: { id: true } });
     if (!toilet) throw new NotFoundException('Toilet not found');
 
     // Only the user the upload URL was issued to can publish it, and only once
     const user = await this.usersService.ensureUser(clerkId);
-    const grant = await this.prisma.uploadGrant.findUnique({ where: { objectName: pendingName } });
+    const grant = await this.prisma.uploadGrant.findUnique({ where: { objectName: uploadId } });
     if (!grant || grant.userId !== user.id || grant.confirmedAt) {
       throw new BadRequestException('Unknown or already used upload');
     }
 
-    await this.assertValidUpload(pendingName);
-    await this.storage.bucket(this.bucketName).file(pendingName).move(finalName);
+    const bucket = this.storage.bucket(this.bucketName);
+    const pending = bucket.file(uploadId);
+    await this.assertValidUpload(pending);
 
-    const finalUrl = `${this.publicUrlPrefix}${finalName}`;
+    let cleaned: Buffer;
+    try {
+      const [raw] = await pending.download();
+      cleaned = await sanitizeImage(raw);
+    } catch (error) {
+      await pending.delete({ ignoreNotFound: true });
+      this.logger.warn(`Rejected upload ${uploadId}: ${error instanceof Error ? error.message : error}`);
+      throw new BadRequestException('The file is not a valid image');
+    }
+
+    const photoName = `${PHOTOS_PREFIX}${match[1]}.jpg`;
+    await bucket.file(photoName).save(cleaned, {
+      contentType: 'image/jpeg',
+      metadata: { cacheControl: 'public, max-age=31536000, immutable' },
+    });
+    await pending.delete({ ignoreNotFound: true });
+
     const [image] = await this.prisma.$transaction([
-      this.prisma.image.create({ data: { url: finalUrl, toiletId, userId: user.id } }),
+      this.prisma.image.create({ data: { url: `${this.publicUrlPrefix}${photoName}`, toiletId, userId: user.id } }),
       this.prisma.uploadGrant.update({ where: { id: grant.id }, data: { confirmedAt: new Date() } }),
     ]);
     return image;
@@ -153,8 +174,7 @@ export class ImagesService {
   }
 
   // Backstop: the signed size range should already have stopped an oversized upload
-  private async assertValidUpload(objectName: string) {
-    const file = this.storage.bucket(this.bucketName).file(objectName);
+  private async assertValidUpload(file: ReturnType<ReturnType<Storage['bucket']>['file']>) {
     const [exists] = await file.exists();
     if (!exists) throw new BadRequestException('Uploaded file not found');
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { coversView, planQueryArea, type QueryArea } from "@/lib/query-area"
 import { useGetToiletsQuery } from "@/lib/services/api"
 import type { Toilet } from "@/lib/services/api" // Re-export or import from api
@@ -45,17 +45,35 @@ export function useToilets(
 
   const skip = queryArgs.radius > MAX_RADIUS_METERS
 
-  const { data: toilets = [], isLoading, isError } = useGetToiletsQuery(
-    queryArgs,
-    { 
-       skip,
-       // Optional: pollingInterval: 60000 
+  const { data: toilets = [], isLoading, isError, isFetching, refetch } = useGetToiletsQuery(queryArgs, { skip })
+
+  // A failed request isn't retried on its own: while the view stays inside the same
+  // area, the query arguments don't change. So try again whenever the user moves or
+  // zooms the map after a failure. (A successful empty answer is kept: the server
+  // returns every toilet in the area, so asking again wouldn't find more.)
+  const viewKey = `${center[0]},${center[1]},${zoom}`
+  const failedAtViewRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!isError) {
+      failedAtViewRef.current = null
+      return
     }
-  )
+    if (failedAtViewRef.current === null) {
+      failedAtViewRef.current = viewKey
+    } else if (failedAtViewRef.current !== viewKey && !isFetching && !skip) {
+      failedAtViewRef.current = viewKey
+      refetch()
+    }
+  }, [isError, isFetching, skip, viewKey, refetch])
 
   const loading = isLoading
   const error = isError ? "Failed to load toilets" : (skip ? "Zoom in to load data" : null)
 
-  return { toilets, loading, error }
+  // For a "Try again" button
+  const retry = () => {
+    if (!skip) refetch()
+  }
+
+  return { toilets, loading, error, failed: isError, retry }
 }
 

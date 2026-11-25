@@ -17,5 +17,18 @@ const config: Config = {
   }
 }
 
-// createJestConfig is exported this way to ensure that next/jest can load the Next.js config which is async
-export default createJestConfig(config)
+// Packages that ship only ES modules and must be compiled for Jest
+const ESM_PACKAGES = ['supercluster', 'kdbush']
+
+// createJestConfig is async so next/jest can load the Next.js config; its node_modules
+// ignore pattern is replaced to let the ES-module-only packages through (pnpm layout aware)
+export default async function jestConfig(): Promise<Config> {
+  const resolved = await createJestConfig(config)()
+  return {
+    ...resolved,
+    transformIgnorePatterns: [
+      `/node_modules/(?!(\\.pnpm|${ESM_PACKAGES.join('|')})[/@])`,
+      '^.+\\.module\\.(css|sass|scss)$',
+    ],
+  }
+}

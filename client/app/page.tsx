@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { ShieldCheck, Plus, LocateFixed, Loader2 } from "lucide-react"
+import { ShieldCheck, Plus, LocateFixed, Loader2, List } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
@@ -13,6 +13,7 @@ import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
 import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { PlaceSearch } from "@/components/place-search"
 import { MapFilters } from "@/components/map-filters"
+import { ToiletList } from "@/components/toilet-list"
 import { applyToiletFilters, countActiveFilters, NO_FILTERS, type ToiletFilters } from "@/lib/toilet-filters"
 import type { Place } from "@/lib/geocoding"
 import Image from "next/image"
@@ -68,6 +69,7 @@ function HomePage() {
   const [userLocation, setUserLocation] = useState<[number, number] | null>(null)
   const [userHeading, setUserHeading] = useState<number | null>(null)
   const [isAddingToilet, setIsAddingToilet] = useState(false)
+  const [showList, setShowList] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newToiletLocation, setNewToiletLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isLocating, setIsLocating] = useState(false)
@@ -84,7 +86,7 @@ function HomePage() {
   // We need to pass the zoom level to useToilets so it can calculate the correct bounding box size
   // We use a queryZoom for fetching to avoid excessive API calls while zooming (similar to queryCenter)
   const [queryZoom, setQueryZoom] = useState<number>(initialView.zoom)
-  const { toilets, loading, error } = useToilets(queryCenter, queryZoom)
+  const { toilets, loading, error, failed, retry } = useToilets(queryCenter, queryZoom)
 
   if (restoreToiletId !== null && !loading) {
     setRestoreToiletId(null)
@@ -317,6 +319,16 @@ function HomePage() {
     setQueryZoom(place.zoom)
   }
 
+  // Opening a toilet from the list: show its details and bring its pin into view
+  const selectFromList = (toilet: Toilet) => {
+    shouldAutoCenterRef.current = false
+    setFollowMe(false)
+    followMeRef.current = false
+    setShowList(false)
+    setMapCenter([toilet.lat, toilet.lon])
+    setSelectedToilet(toilet)
+  }
+
   return (
     <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
       {/* Header */}
@@ -347,7 +359,6 @@ function HomePage() {
                 size="sm" 
                 variant={isAddingToilet ? "destructive" : "secondary"} 
                 className="gap-2"
-                // The text is hidden on phones, so the button needs its own name there
                 aria-label={isAddingToilet ? "Cancel adding a toilet" : "Add a missing toilet"}
                 onClick={() => {
                    if (!user) {
@@ -375,6 +386,16 @@ function HomePage() {
             >
                 <Plus className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">{isAddingToilet ? "Cancel" : "Add Missing"}</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowList(true)}
+              className="gap-2"
+              aria-label="Show nearby toilets as a list"
+            >
+              <List className="h-4 w-4" aria-hidden="true" />
+              <span className="hidden sm:inline">List</span>
             </Button>
             <Button
               variant={followMe ? "default" : "outline"}
@@ -420,6 +441,11 @@ function HomePage() {
             role="alert"
           >
             <p className="text-sm font-medium text-black">{error}</p>
+            {failed && (
+              <button type="button" onClick={retry} className="mt-1 text-xs font-medium text-black underline underline-offset-2">
+                Try again
+              </button>
+            )}
           </div>
         )}
 
@@ -466,6 +492,16 @@ function HomePage() {
           }}
         />
 
+        {showList && (
+          <ToiletList
+            toilets={filteredToilets}
+            center={mapCenter}
+            filtersActive={hasActiveFilters}
+            onSelect={selectFromList}
+            onClose={() => setShowList(false)}
+          />
+        )}
+
         {/* Privacy Badge */}
         <div className="absolute bottom-4 left-4 z-[1000] flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 shadow-lg">
           <ShieldCheck className="h-4 w-4 text-black" aria-hidden="true" />
@@ -473,6 +509,10 @@ function HomePage() {
             No tracking. Powered by open data.{" "}
             <Link href="/privacy" className="underline underline-offset-2">
               Privacy
+            </Link>
+            {" · "}
+            <Link href="/terms" className="underline underline-offset-2">
+              Terms
             </Link>
           </p>
         </div>
