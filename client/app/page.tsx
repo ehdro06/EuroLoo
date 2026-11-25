@@ -384,7 +384,7 @@ function HomePage() {
                    }
                 }}
             >
-                <Plus className="h-4 w-4" />
+                <Plus className="h-4 w-4" aria-hidden="true" />
                 <span className="hidden sm:inline">{isAddingToilet ? "Cancel" : "Add Missing"}</span>
             </Button>
             <Button

@@ -378,6 +378,8 @@ export function MapContainer({
               if (next === null) return
               e.preventDefault()
               const clamped = Math.max(1, Math.min(18, Math.round(next)))
+              // Update now, so a held-down key or fast presses step from the new level, not a stale one
+              currentZoomRef.current = clamped
               setTransientZoom(clamped)
               onZoomChange?.(clamped)
             }}
