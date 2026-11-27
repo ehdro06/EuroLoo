@@ -2,7 +2,8 @@
 
 import Image from "next/image"
 import Link from "next/link"
-import { Menu, Plus, ShieldCheck, X } from "lucide-react"
+import { Info, Menu, Plus, ShieldCheck, X } from "lucide-react"
+import { APP_LOGO, APP_NAME, APP_TAGLINE } from "@/lib/brand"
 import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs"
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 
@@ -10,13 +11,14 @@ interface AppMenuProps {
   onSignIn: () => void
   onAddToilet: () => void
   isAddingToilet: boolean
+  onAbout: () => void
 }
 
 /**
  * Everything that isn't used on every visit: who we are, signing in, adding a toilet and the
  * legal pages. Kept out of the way so the map can have the whole screen.
  */
-export function AppMenu({ onSignIn, onAddToilet, isAddingToilet }: AppMenuProps) {
+export function AppMenu({ onSignIn, onAddToilet, isAddingToilet, onAbout }: AppMenuProps) {
   const { user } = useUser()
   const row = "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-black hover:bg-slate-100"
 
@@ -35,8 +37,8 @@ export function AppMenu({ onSignIn, onAddToilet, isAddingToilet }: AppMenuProps)
       >
         <div className="flex items-center justify-between border-b border-black/10 px-4 py-4">
           <div className="flex items-center gap-2">
-            <Image src="/icon.svg" width={46} height={46} alt="" className="h-8 w-8" />
-            <DialogTitle className="text-lg font-semibold text-black">EuroLoo</DialogTitle>
+            <Image src={APP_LOGO} width={46} height={46} alt="" className="h-8 w-8" />
+            <DialogTitle className="text-lg font-semibold text-black">{APP_NAME}</DialogTitle>
           </div>
           <DialogClose aria-label="Close menu" className="rounded-full p-2 text-black/70 hover:bg-slate-100 hover:text-black">
             <X className="h-5 w-5" aria-hidden="true" />
@@ -44,7 +46,7 @@ export function AppMenu({ onSignIn, onAddToilet, isAddingToilet }: AppMenuProps)
         </div>
 
         <DialogDescription className="px-4 pt-3 text-sm text-black/70">
-          Find nearby public toilets fast. Privacy-first by default.
+          {APP_TAGLINE}.
         </DialogDescription>
 
         <nav className="flex flex-1 flex-col gap-1 p-2" aria-label="Main">
@@ -68,6 +70,11 @@ export function AppMenu({ onSignIn, onAddToilet, isAddingToilet }: AppMenuProps)
           <DialogClose className={row} onClick={onAddToilet}>
             <Plus className="h-4 w-4" aria-hidden="true" />
             {isAddingToilet ? "Cancel adding a toilet" : "Add a missing toilet"}
+          </DialogClose>
+
+          <DialogClose className={row} onClick={onAbout}>
+            <Info className="h-4 w-4" aria-hidden="true" />
+            About {APP_NAME} and the map key
           </DialogClose>
 
           <div className="my-2 border-t border-black/10" />
