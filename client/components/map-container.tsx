@@ -5,15 +5,12 @@ import { Map, Marker, Overlay } from "pigeon-maps"
 import { Locate, Loader2 } from "lucide-react"
 import type { Toilet } from "@/hooks/use-toilets"
 import { pickTiles, TILE_BACKGROUND } from "@/lib/map-tiles"
+import { createToiletIndex, mapItemsAt, zoomToExpand } from "@/lib/clusters"
 
 // Fixed per deployment: CARTO when NEXT_PUBLIC_CARTO_API_KEY is set, else OpenStreetMap
 const TILES = pickTiles(process.env.NEXT_PUBLIC_CARTO_API_KEY)
-import { createToiletIndex, mapItemsAt, zoomToExpand } from "@/lib/clusters"
 
-// Pin colors (Tailwind green-700 / amber-700 / gray-600) keep at least 3:1 contrast
-// against every OpenStreetMap background (land, roads, parks, water), as WCAG 1.4.11
-// requires for meaningful graphics. Free/paid is also shown in text in the details.
-export const PIN_COLORS = { free: "#15803d", paid: "#b45309", unknown: "#4b5563" } as const
+import { PIN_COLORS } from "@/lib/pins" // shared with the map legend
 
 // Bubbles grow a little with the number of toilets they hold
 function clusterSize(count: number) {

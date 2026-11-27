@@ -10,6 +10,8 @@ import { AddToiletDialog } from "@/components/add-toilet-dialog"
 import { toast } from "sonner"
 import { SignedIn, useUser } from "@clerk/nextjs";
 import { AppMenu } from "@/components/app-menu"
+import { LegendButton } from "@/components/map-legend"
+import { isFirstVisit, WelcomeCard } from "@/components/welcome-card"
 import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { PlaceSearch } from "@/components/place-search"
 import { MapFilters } from "@/components/map-filters"
@@ -68,6 +70,7 @@ function HomePage() {
   const [userHeading, setUserHeading] = useState<number | null>(null)
   const [isAddingToilet, setIsAddingToilet] = useState(false)
   const [showList, setShowList] = useState(false)
+  const [welcomeOpen, setWelcomeOpen] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newToiletLocation, setNewToiletLocation] = useState<{lat: number, lng: number} | null>(null)
   const [isLocating, setIsLocating] = useState(false)
@@ -327,6 +330,14 @@ function HomePage() {
     setSelectedToilet(toilet)
   }
 
+  // Introduce the site on a first visit, unless the visitor came straight to a toilet
+  // (after a moment, so the map shows first and the card appears on top of it)
+  useEffect(() => {
+    if (!isFirstVisit() || initialView.toiletId) return
+    const timer = window.setTimeout(() => setWelcomeOpen(true), 400)
+    return () => window.clearTimeout(timer)
+  }, [initialView.toiletId])
+
   // Shared by the menu item and the floating + button
   const toggleAddToilet = () => {
     if (!user) {
@@ -357,7 +368,7 @@ function HomePage() {
       <header className="pointer-events-none absolute inset-x-0 top-0 z-[1000] space-y-2 px-3 pt-3 sm:px-4">
         <h1 className="sr-only">EuroLoo: find public toilets in Europe</h1>
         <div className="flex items-start gap-2 sm:max-w-xl">
-          <AppMenu onSignIn={openSignIn} onAddToilet={toggleAddToilet} isAddingToilet={isAddingToilet} />
+          <AppMenu onSignIn={openSignIn} onAddToilet={toggleAddToilet} isAddingToilet={isAddingToilet} onAbout={() => setWelcomeOpen(true)} />
           <div className="pointer-events-auto min-w-0 flex-1 rounded-full shadow-md">
             <PlaceSearch near={mapCenter} onSelect={goToPlace} />
           </div>
@@ -369,6 +380,7 @@ function HomePage() {
 
       {/* Floating actions, within thumb reach */}
       <nav aria-label="Map actions" className="absolute bottom-6 left-3 z-[1000] flex gap-2 sm:bottom-4 sm:left-4">
+        <LegendButton />
         <button
           type="button"
           onClick={() => setShowList(true)}
@@ -475,6 +487,8 @@ function HomePage() {
         )}
 
       </main>
+
+      <WelcomeCard open={welcomeOpen} onOpenChange={setWelcomeOpen} />
 
       {/* Toilet Details Drawer */}
       <ToiletDrawer

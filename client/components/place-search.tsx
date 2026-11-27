@@ -1,7 +1,9 @@
 "use client"
 
+import Image from "next/image"
+import { APP_LOGO } from "@/lib/brand"
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from "react"
-import { Loader2, MapPin, Search, X } from "lucide-react"
+import { Loader2, MapPin, X } from "lucide-react"
 import { searchPlaces, type Place } from "@/lib/geocoding"
 
 const MIN_QUERY_LENGTH = 3
@@ -102,7 +104,8 @@ export function PlaceSearch({ near, onSelect }: PlaceSearchProps) {
 
   return (
     <div className="relative">
-      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-black/40" aria-hidden="true" />
+      {/* The logo doubles as the search icon, so the brand is always on screen */}
+      <Image src={APP_LOGO} width={46} height={46} alt="" className="pointer-events-none absolute left-2 top-1/2 h-7 w-7 -translate-y-1/2" />
       <input
         ref={inputRef}
         type="search"
@@ -120,7 +123,7 @@ export function PlaceSearch({ near, onSelect }: PlaceSearchProps) {
         aria-activedescendant={showList && results[activeIndex] ? `${listId}-${activeIndex}` : undefined}
         enterKeyHint="search"
         autoComplete="off"
-        className="h-11 w-full rounded-full border border-black/10 bg-white pl-9 pr-10 text-base text-black sm:text-sm placeholder:text-black/40 focus:border-black/30 focus:bg-white focus:outline-none [&::-webkit-search-cancel-button]:hidden"
+        className="h-11 w-full rounded-full border border-black/10 bg-white pl-11 pr-10 text-base text-black sm:text-sm placeholder:text-black/40 focus:border-black/30 focus:bg-white focus:outline-none [&::-webkit-search-cancel-button]:hidden"
       />
       <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center">
         {loading ? (
