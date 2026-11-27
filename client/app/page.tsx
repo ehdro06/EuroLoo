@@ -2,22 +2,20 @@
 
 import { useState, useRef, useEffect, Suspense } from "react"
 import { useSearchParams } from "next/navigation"
-import { ShieldCheck, Plus, LocateFixed, Loader2, List } from "lucide-react"
-import { Button } from "@/components/ui/button"
+import { Plus, List, X } from "lucide-react"
 import { ToiletDrawer } from "@/components/toilet-drawer"
 import { MapContainer } from "@/components/map-container"
 import { useToilets, type Toilet } from "@/hooks/use-toilets"
 import { AddToiletDialog } from "@/components/add-toilet-dialog"
 import { toast } from "sonner"
-import { SignedIn, SignedOut, UserButton, useUser } from "@clerk/nextjs";
+import { SignedIn, useUser } from "@clerk/nextjs";
+import { AppMenu } from "@/components/app-menu"
 import { useSignInHere } from "@/hooks/use-sign-in-here"
 import { PlaceSearch } from "@/components/place-search"
 import { MapFilters } from "@/components/map-filters"
 import { ToiletList } from "@/components/toilet-list"
 import { applyToiletFilters, countActiveFilters, NO_FILTERS, type ToiletFilters } from "@/lib/toilet-filters"
 import type { Place } from "@/lib/geocoding"
-import Image from "next/image"
-import Link from "next/link"
 
 // iOS Safari exposes the compass heading and a permission prompt on orientation events.
 type CompassOrientationEvent = DeviceOrientationEvent & { webkitCompassHeading?: number }
@@ -329,115 +327,89 @@ function HomePage() {
     setSelectedToilet(toilet)
   }
 
-  return (
-    <div className="fixed inset-0 flex flex-col overflow-hidden bg-white">
-      {/* Header */}
-      <header className="z-10 shrink-0 border-b border-black/10 bg-white">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <div className="flex items-center gap-2">
-            <Image src="/icon.svg" width={46} height={46} alt="EuroLoo Logo" className="w-8 h-8" />
-            <div>
-              <h1 className="text-xl font-semibold tracking-tight text-black">EuroLoo</h1>
-              <p className="hidden text-xs text-black/70 sm:block">Find nearby public toilets fast. Privacy-first by default.</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 mr-2">
-              <SignedOut>
-                <Button variant="ghost" size="sm" onClick={openSignIn}>Sign In</Button>
-              </SignedOut>
-              <SignedIn>
-                {user?.publicMetadata?.role === 'admin' && (
-                  <Button size="sm" variant="ghost" asChild>
-                    <a href="/admin">Admin</a>
-                  </Button>
-                )}
-                <UserButton />
-              </SignedIn>
-            </div>
-            <Button 
-                size="sm" 
-                variant={isAddingToilet ? "destructive" : "secondary"} 
-                className="gap-2"
-                aria-label={isAddingToilet ? "Cancel adding a toilet" : "Add a missing toilet"}
-                onClick={() => {
-                   if (!user) {
-                       toast("Help us keep EuroLoo clean", {
-                           description: "Please sign in to add locations. We use accounts to prevent spam and ensure quality data for everyone.",
-                           duration: 5000,
-                       });
-                       openSignIn();
-                       return;
-                   }
+  // Shared by the menu item and the floating + button
+  const toggleAddToilet = () => {
+    if (!user) {
+      toast("Help us keep EuroLoo clean", {
+        description: "Please sign in to add locations. We use accounts to prevent spam and ensure quality data for everyone.",
+        duration: 5000,
+      })
+      openSignIn()
+      return
+    }
+    if (!userLocation) {
+      toast.info("Please enable location first", { description: "We need your location to let you add a toilet." })
+      handleUserLocationRequest()
+      return
+    }
+    const next = !isAddingToilet
+    setIsAddingToilet(next)
+    if (next) {
+      setMapCenter(userLocation)
+      setZoom(18) // Close zoom for precise placement
+      toast("Tap the map to add a toilet")
+    }
+  }
 
-                   if (!userLocation) {
-                       toast.info("Please enable location first", { description: "We need your location to let you add a toilet." })
-                       handleUserLocationRequest()
-                   } else {
-                       const newState = !isAddingToilet
-                       setIsAddingToilet(newState)
-                       if (newState) {
-                          setMapCenter(userLocation)
-                          setZoom(18) // Close zoom for precise placement
-                          toast("Tap the map to add a toilet")
-                       }
-                   }
-                }}
-            >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-                <span className="hidden sm:inline">{isAddingToilet ? "Cancel" : "Add Missing"}</span>
-            </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowList(true)}
-              className="gap-2"
-              aria-label="Show nearby toilets as a list"
-            >
-              <List className="h-4 w-4" aria-hidden="true" />
-              <span className="hidden sm:inline">List</span>
-            </Button>
-            <Button
-              variant={followMe ? "default" : "outline"}
-              size="sm"
-              onClick={handleUserLocationRequest}
-              className="gap-2"
-              aria-label="Follow my location"
-              disabled={isLocating}
-            >
-              {isLocating ? (
-                 <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-              ) : (
-                 <LocateFixed className="h-4 w-4" aria-hidden="true" />
-              )}
-              <span className="hidden sm:inline">{isLocating ? "Locating..." : followMe ? "Following" : "Follow Me"}</span>
-            </Button>
+  return (
+    <div className="fixed inset-0 overflow-hidden bg-white">
+      {/* The map has the whole screen; search, filters and actions float on top of it */}
+      <header className="pointer-events-none absolute inset-x-0 top-0 z-[1000] space-y-2 px-3 pt-3 sm:px-4">
+        <h1 className="sr-only">EuroLoo: find public toilets in Europe</h1>
+        <div className="flex items-start gap-2 sm:max-w-xl">
+          <AppMenu onSignIn={openSignIn} onAddToilet={toggleAddToilet} isAddingToilet={isAddingToilet} />
+          <div className="pointer-events-auto min-w-0 flex-1 rounded-full shadow-md">
+            <PlaceSearch near={mapCenter} onSelect={goToPlace} />
           </div>
         </div>
-        <div className="mx-auto max-w-7xl space-y-2 px-4 pb-3 sm:px-6">
-          <PlaceSearch near={mapCenter} onSelect={goToPlace} />
-          <MapFilters filters={filters} onChange={setFilters} />
+        <div className="pointer-events-auto sm:max-w-xl">
+          <MapFilters filters={filters} onChange={setFilters} floating />
         </div>
       </header>
 
+      {/* Floating actions, within thumb reach */}
+      <nav aria-label="Map actions" className="absolute bottom-6 left-3 z-[1000] flex gap-2 sm:bottom-4 sm:left-4">
+        <button
+          type="button"
+          onClick={() => setShowList(true)}
+          aria-label="Show nearby toilets as a list"
+          className="flex h-11 items-center gap-2 rounded-full border border-black/10 bg-white px-4 text-sm font-medium text-black shadow-md hover:bg-slate-50"
+        >
+          <List className="h-4 w-4" aria-hidden="true" />
+          List
+        </button>
+        <SignedIn>
+          <button
+            type="button"
+            onClick={toggleAddToilet}
+            aria-label={isAddingToilet ? "Cancel adding a toilet" : "Add a missing toilet"}
+            className={`flex h-11 w-11 items-center justify-center rounded-full border shadow-md ${
+              isAddingToilet ? "border-red-700 bg-red-600 text-white hover:bg-red-700" : "border-black/10 bg-white text-black hover:bg-slate-50"
+            }`}
+          >
+            {isAddingToilet ? <X className="h-5 w-5" aria-hidden="true" /> : <Plus className="h-5 w-5" aria-hidden="true" />}
+          </button>
+        </SignedIn>
+      </nav>
+
       {/* Main Content */}
       <main
-        // z-0 keeps the map's overlays below the header's search results
-        className="relative z-0 flex-1 min-h-0"
+        // z-0 keeps the map's own overlays below the floating search results
+        className="absolute inset-0 z-0"
         onPointerDownCapture={() => {
           // The user is interacting with the map; don't auto-center from now on
           shouldAutoCenterRef.current = false
         }}
       >
         {isAddingToilet && (
-            <div className="absolute top-4 left-1/2 z-[1000] -translate-x-1/2 rounded-full border border-black/10 bg-white px-4 py-2 shadow-lg animate-in fade-in slide-in-from-top-4">
+            <div className="absolute top-32 left-1/2 z-[1000] -translate-x-1/2 rounded-full border border-black/10 bg-white px-4 py-2 shadow-lg animate-in fade-in slide-in-from-top-4">
                 <p className="text-sm font-medium text-black">Tap within the circle to add toilet</p>
             </div>
         )}
 
         {error && (
           <div
-            className="absolute left-1/2 top-16 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg"
+            className="absolute left-1/2 top-32 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg"
             role="alert"
           >
             <p className="text-sm font-medium text-black">{error}</p>
@@ -450,7 +422,7 @@ function HomePage() {
         )}
 
         {!loading && !error && filteredToilets.length === 0 && (
-          <div className="absolute left-1/2 top-16 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg">
+          <div className="absolute left-1/2 top-32 z-[1000] -translate-x-1/2 rounded-lg border border-black/10 bg-white px-4 py-3 shadow-lg">
             {hasActiveFilters && toilets.length > 0 ? (
               <>
                 <p className="text-sm font-medium text-black">No toilets here match your filters.</p>
@@ -502,20 +474,6 @@ function HomePage() {
           />
         )}
 
-        {/* Privacy Badge */}
-        <div className="absolute bottom-4 left-4 z-[1000] flex items-center gap-2 rounded-lg border border-black/10 bg-white px-3 py-2 shadow-lg">
-          <ShieldCheck className="h-4 w-4 text-black" aria-hidden="true" />
-          <p className="text-xs font-medium text-black">
-            No tracking. Powered by open data.{" "}
-            <Link href="/privacy" className="underline underline-offset-2">
-              Privacy
-            </Link>
-            {" · "}
-            <Link href="/terms" className="underline underline-offset-2">
-              Terms
-            </Link>
-          </p>
-        </div>
       </main>
 
       {/* Toilet Details Drawer */}
