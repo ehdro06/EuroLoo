@@ -185,6 +185,7 @@ Project settings: Root Directory `client`, framework Next.js. Environment variab
 |---|---|
 | `NEXT_PUBLIC_API_URL` | Cloud Run service URL (`https://euroloo-git-<PROJECT_NUMBER>.europe-west1.run.app`) |
 | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` | Clerk publishable key |
+| `NEXT_PUBLIC_CARTO_API_KEY` | Optional. Free CARTO basemaps key (carto.com/basemaps/apikey), restricted to the site's domain. Faster, sharper map tiles; without it the map uses OpenStreetMap's public tile server |
 | `CLERK_SECRET_KEY` | Clerk secret key (used by `proxy.ts`) |
 
 `NEXT_PUBLIC_*` values are baked in at build time, so redeploy after changing them.

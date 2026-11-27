@@ -4,6 +4,10 @@ import { useEffect, useMemo, useRef, useState, useLayoutEffect } from "react"
 import { Map, Marker, Overlay } from "pigeon-maps"
 import { Locate, Loader2 } from "lucide-react"
 import type { Toilet } from "@/hooks/use-toilets"
+import { pickTiles, TILE_BACKGROUND } from "@/lib/map-tiles"
+
+// Fixed per deployment: CARTO when NEXT_PUBLIC_CARTO_API_KEY is set, else OpenStreetMap
+const TILES = pickTiles(process.env.NEXT_PUBLIC_CARTO_API_KEY)
 import { createToiletIndex, mapItemsAt, zoomToExpand } from "@/lib/clusters"
 
 // Pin colors (Tailwind green-700 / amber-700 / gray-600) keep at least 3:1 contrast
@@ -219,6 +223,7 @@ export function MapContainer({
     <div 
       ref={containerRef} 
       className="relative h-full w-full touch-none overscroll-none select-none"
+      style={{ background: TILE_BACKGROUND }}
       onMouseDownCapture={(e) => {
         const now = Date.now()
         // Prevent double-click zoom by stopping propagation of the second click
@@ -246,6 +251,25 @@ export function MapContainer({
         defaultZoom={zoom ?? 13}
         
         boxClassname="h-full w-full touch-none"
+        provider={TILES.provider}
+        dprs={TILES.carto ? [1, 2] : undefined}
+        attribution={
+          <span>
+            ©{" "}
+            <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">
+              OpenStreetMap
+            </a>{" "}
+            contributors
+            {TILES.carto && (
+              <>
+                , ©{" "}
+                <a href="https://carto.com/attribution/" target="_blank" rel="noopener noreferrer">
+                  CARTO
+                </a>
+              </>
+            )}
+          </span>
+        }
         animate={true} // Always animate since we aren't fighting React updates anymore
         animateMaxScreens={9999} // Always animate regardless of distance
         
